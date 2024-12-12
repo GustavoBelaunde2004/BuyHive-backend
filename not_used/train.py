@@ -14,7 +14,7 @@ def load_training_data():
     features, labels = [], []
     for file in os.listdir(DATA_PATH):
         if file.endswith(".npz"):
-            data = np.load(os.path.join(DATA_PATH, file))
+            data = np.load(os.path.join(DATA_PATH, file), allow_pickle=True)
             features.append(data["features"])
             labels.append(data["labels"])
     return np.vstack(features), np.hstack(labels)
