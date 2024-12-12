@@ -1,6 +1,6 @@
 import openai
 
-openai.api_key = "YOUR_OPENAI_API_KEY"
+openai.api_key = "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"
 
 def parse_html_with_openai(html_content: str):
     """
