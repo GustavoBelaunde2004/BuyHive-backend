@@ -1,19 +1,20 @@
 from fastapi import FastAPI, HTTPException, Request
-from app.openai_parser import parse_html_with_openai
+from app.openai_parser import parse_inner_text_with_groq
 
 app = FastAPI()
 
 @app.post("/extract")
 async def extract_cart_info(request: Request):
     try:
-        # Parse JSON body
-        data = await request.json()
-        html_content = data.get("html")
-        if not html_content:
-            raise HTTPException(status_code=400, detail="No HTML content provided.")
+        # Receive plain text input
+        input_text = await request.body()
+        input_text = input_text.decode("utf-8").strip()
 
-        # Call the OpenAI parser
-        extracted_data = parse_html_with_openai(html_content)
+        if not input_text:
+            raise HTTPException(status_code=400, detail="Invalid input: Expecting plain text input.")
+
+        # Call the parser
+        extracted_data = parse_inner_text_with_groq(input_text)
 
         return {"cart_items": extracted_data}
 

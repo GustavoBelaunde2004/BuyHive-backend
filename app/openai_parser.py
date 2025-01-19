@@ -1,58 +1,68 @@
-import openai
-from bs4 import BeautifulSoup
+import json
+from groq import Groq
 
-openai.api_key = "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"
+# Groq API key
+GROQ_API_KEY = "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"
+client = Groq(api_key=GROQ_API_KEY)
 
-def trim_html(html_content: str) -> str:
+def parse_inner_text_with_groq(input_text: str):
     """
-    Extracts the <body> content from the HTML document to reduce size.
-    Falls back to the full HTML if <body> is not found.
+    Send plain innerText to Groq and extract product information.
     """
-    try:
-        soup = BeautifulSoup(html_content, "html.parser")
-        body = soup.body
-        if body:
-            return str(body)
-        else:
-            return html_content  # Fallback to the full HTML
-    except Exception as e:
-        # Log the error and fallback to the original HTML
-        print(f"Error trimming HTML: {e}")
-        return html_content
+    if not isinstance(input_text, str) or not input_text.strip():
+        raise ValueError("Invalid input: Expecting plain text input.")
 
-def parse_html_with_openai(html_content: str):
-    """
-    Send trimmed HTML content to OpenAI and extract product information.
-    """
-    # Trim the HTML before sending to OpenAI
-    trimmed_html = trim_html(html_content)
-
-    # Create a robust prompt
+    # Create a prompt for Groq
     prompt = f"""
-    You are an AI that extracts product details from HTML files of shopping websites.
-    Analyze the provided HTML and extract the following information:
+    You are an AI that extracts product details from shopping website text.
+    Analyze the following text and extract the following information:
     - Product Name
     - Price
-    - Image URL (if available)
 
-    Provide the output as a JSON object with keys 'product_name', 'price', and 'image_url'.
+    Provide the output as a JSON object with keys 'product_name' and 'price'.
     If a field is missing, use 'null' as the value.
+    Remeber to only output the JSON, dont output anything else.
 
-    HTML:
-    {trimmed_html}
+    Text:
+    {input_text.strip()}
     """
 
     try:
-        # Send the request to OpenAI
-        response = openai.Completion.create(
-            model="gpt-3.5-turbo-instruct",
-            prompt=prompt,
-            max_tokens=500,
+        # Send the request to Groq
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            max_completion_tokens=500,
             temperature=0,
         )
-        result = response.choices[0].text.strip()
 
-        # Convert the result to JSON
-        return result
+        # Parse the response as JSON
+        result = response.choices[0].message.content.strip()
+        try:
+            # Extract JSON content from Groq's response, ignoring formatting like triple backticks
+            start_index = result.find("{")
+            end_index = result.rfind("}") + 1
+
+            if start_index == -1 or end_index == -1:
+                raise ValueError("Groq response does not contain valid JSON.")
+
+            # Extract and parse the JSON substring
+            json_content = result[start_index:end_index]
+            parsed_result = json.loads(json_content)
+        except json.JSONDecodeError:
+            raise ValueError(f"Groq returned invalid JSON: {result}")
+
+        return parsed_result
+
     except Exception as e:
-        raise ValueError(f"Error parsing HTML with OpenAI: {e}")
+        raise ValueError(f"Error parsing text with Groq: {e}")
+
+# Example usage
+if __name__ == "__main__":
+    sample_inner_text = """
+    Awesome Product
+    Price: $19.99
+    """
+
+    extracted_data = parse_inner_text_with_groq(sample_inner_text)
+    print("Extracted Data:", extracted_data)
