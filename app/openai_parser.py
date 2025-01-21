@@ -56,13 +56,3 @@ def parse_inner_text_with_groq(input_text: str):
 
     except Exception as e:
         raise ValueError(f"Error parsing text with Groq: {e}")
-
-# Example usage
-if __name__ == "__main__":
-    sample_inner_text = """
-    Awesome Product
-    Price: $19.99
-    """
-
-    extracted_data = parse_inner_text_with_groq(sample_inner_text)
-    print("Extracted Data:", extracted_data)
