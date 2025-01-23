@@ -84,9 +84,6 @@ async def modify_cart(email: str, cart_name: str, payload: ModifyCartRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-#HAVENT TESTED YET!!!!!!!!!!!!!!!!!!
-
 @router.delete("/carts/{email}/{cart_name}")
 async def remove_cart(email: str, cart_name: str):
     """Delete a specific cart for a user."""
