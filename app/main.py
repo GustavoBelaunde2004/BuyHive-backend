@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.openai_parser import parse_inner_text_with_groq
+from app.routes import router as cart_router
 
 app = FastAPI()
 
@@ -12,6 +13,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register routes
+app.include_router(cart_router)
 
 @app.post("/extract")
 async def extract_cart_info(request: Request):
