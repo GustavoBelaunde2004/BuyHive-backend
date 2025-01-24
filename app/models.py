@@ -1,44 +1,52 @@
+from datetime import datetime
 from .database import cart_collection
+
 
 async def add_user_by_email(email: str, name: str = "Unknown"):
     """Add a new user to the database or ensure they already exist."""
-    # Check if the user already exists
     existing_user = await cart_collection.find_one({"email": email})
     if existing_user:
         return {"message": "User already exists!"}
 
-    # Add a new user if not found
     new_user = {
         "email": email,
         "name": name,
+        "cart_count": 0,
+        "carts": []
     }
     await cart_collection.insert_one(new_user)
     return {"message": "User added successfully!"}
 
 
-async def save_cart(email: str, cart_name: str, items: list):
-    """Save a new cart for a user, avoiding duplicate cart names."""
-    # Check if the cart already exists
-    existing_cart = await cart_collection.find_one(
-        {"email": email, "carts.cart_name": cart_name}
-    )
+async def save_cart(email: str, cart_name: str):
+    """Add a new cart for a user and update the cart count."""
+    existing_cart = await cart_collection.find_one({"email": email, "carts.cart_name": cart_name})
     if existing_cart:
         return {"message": "Cart already exists!"}
 
-    # Add the new cart
+    # Add a new cart with a timestamp
     result = await cart_collection.update_one(
         {"email": email},
-        {"$push": {"carts": {"cart_name": cart_name, "items": items}}},
+        {
+            "$push": {
+                "carts": {
+                    "cart_name": cart_name,
+                    "item_count": 0,
+                    "created_at": datetime.utcnow().isoformat(),
+                    "items": []
+                }
+            },
+            "$inc": {"cart_count": 1}
+        },
         upsert=True
     )
 
-    # Return a JSON-friendly response
     if result.upserted_id:
         return {"message": "Cart created successfully!", "upserted_id": str(result.upserted_id)}
     elif result.modified_count > 0:
-        return {"message": "Cart updated successfully!"}
+        return {"message": "Cart added successfully!"}
     else:
-        return {"message": "No changes made to the cart."}
+        return {"message": "No changes made."}
 
 
 async def get_carts(email: str):
@@ -59,10 +67,13 @@ async def update_cart(email: str, cart_name: str, items: list):
 
 
 async def delete_cart(email: str, cart_name: str):
-    """Delete a specific cart for a user."""
+    """Delete a specific cart and update the cart count."""
     result = await cart_collection.update_one(
         {"email": email},
-        {"$pull": {"carts": {"cart_name": cart_name}}}
+        {
+            "$pull": {"carts": {"cart_name": cart_name}},
+            "$inc": {"cart_count": -1}
+        }
     )
     if result.modified_count == 0:
         return {"message": "Cart not found!"}
@@ -70,21 +81,31 @@ async def delete_cart(email: str, cart_name: str):
 
 
 async def add_item_to_cart(email: str, cart_name: str, item: dict):
-    """Add an item to a specific cart."""
+    """Add an item to a specific cart and update the item count."""
+    # Add a timestamp to the item
+    item["added_at"] = datetime.utcnow().isoformat()
+
     result = await cart_collection.update_one(
         {"email": email, "carts.cart_name": cart_name},
-        {"$push": {"carts.$.items": item}}
+        {
+            "$push": {"carts.$.items": item},
+            "$inc": {"carts.$.item_count": 1}
+        }
     )
+
     if result.matched_count == 0:
         return {"message": "Cart not found!"}
     return {"message": "Item added successfully!"}
 
 
 async def delete_item(email: str, cart_name: str, item_name: str):
-    """Delete a specific item from a cart."""
+    """Delete a specific item from a cart and update the item count."""
     result = await cart_collection.update_one(
         {"email": email, "carts.cart_name": cart_name},
-        {"$pull": {"carts.$.items": {"name": item_name}}}
+        {
+            "$pull": {"carts.$.items": {"name": item_name}},
+            "$inc": {"carts.$.item_count": -1}
+        }
     )
     if result.modified_count == 0:
         return {"message": "Cart or item not found!"}

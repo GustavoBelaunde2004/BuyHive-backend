@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import List, Dict
+from pydantic import BaseModel, HttpUrl
+from typing import List, Optional
 from app.models import (
     save_cart,
     get_carts,
@@ -12,19 +12,21 @@ from app.models import (
 )
 
 # Define the expected structure of the request body
-class CartItem(BaseModel):
+class Item(BaseModel):
     name: str
     price: float
-    quantity: int
+    image: Optional[HttpUrl]  # Optional URL for the product image
+    url: Optional[HttpUrl]    # Optional URL for the product
+    notes: Optional[str]      # Optional notes about the item
 
 class AddCartRequest(BaseModel):
-    cart_name: str
-    items: List[CartItem]
+    cart_name: str  # The name of the new cart
 
 class ModifyCartRequest(BaseModel):
-    items: List[CartItem]  # Use the existing CartItem model for validation
+    items: List[Item]  # List of items for modifying a cart
 
 router = APIRouter()
+
 
 @router.post("/users/add")
 async def add_user(payload: dict):
@@ -39,7 +41,6 @@ async def add_user(payload: dict):
         raise HTTPException(status_code=400, detail="Email is required")
 
     try:
-        # Call the function to add the user to MongoDB
         response = await add_user_by_email(email, name)
         return response
     except Exception as e:
@@ -50,11 +51,7 @@ async def add_user(payload: dict):
 async def add_cart(email: str, payload: AddCartRequest):
     """Add a new cart for a user."""
     try:
-        # Convert the Pydantic models (CartItem) to dictionaries
-        items_as_dict = [item.dict() for item in payload.items]
-
-        # Call save_cart with the converted dictionary list
-        response = await save_cart(email, payload.cart_name, items_as_dict)
+        response = await save_cart(email, payload.cart_name)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -77,7 +74,6 @@ async def modify_cart(email: str, cart_name: str, payload: ModifyCartRequest):
         # Convert Pydantic models to dictionaries
         items_as_dict = [item.dict() for item in payload.items]
 
-        # Call the update_cart function with the parsed data
         response = await update_cart(email, cart_name, items_as_dict)
         return response
     except Exception as e:
@@ -95,10 +91,13 @@ async def remove_cart(email: str, cart_name: str):
 
 
 @router.post("/carts/{email}/{cart_name}/items")
-async def add_item(email: str, cart_name: str, item: dict):
+async def add_item(email: str, cart_name: str, payload: Item):
     """Add an item to a specific cart."""
     try:
-        response = await add_item_to_cart(email, cart_name, item)
+        # Convert the Pydantic model to a dictionary
+        item_as_dict = payload.dict()
+
+        response = await add_item_to_cart(email, cart_name, item_as_dict)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
