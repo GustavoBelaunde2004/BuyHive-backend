@@ -35,7 +35,7 @@ class EditNoteRequest(BaseModel):
 
 router = APIRouter()
 
-#ADD USER ROUTE
+#USER ROUTES--------------------------------------------------------------------------------------------------------------
 @router.post("/users/add")
 async def add_user(payload: dict):
     """
@@ -54,7 +54,7 @@ async def add_user(payload: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-#ADD CART ROUTE
+#CART ROUTES--------------------------------------------------------------------------------------------------------------
 @router.post("/carts/{email}")
 async def add_cart(email: str, payload: AddCartRequest):
     """Add a new cart for a user."""
@@ -84,7 +84,7 @@ async def retrieve_carts(email: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
+#DELETE
 @router.delete("/carts/{email}/{cart_name}")
 async def remove_cart(email: str, cart_name: str):
     """Delete a specific cart for a user."""
@@ -94,7 +94,7 @@ async def remove_cart(email: str, cart_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
+#ITEMS FUNCTIOS--------------------------------------------------------------------------------------------------------------
 @router.post("/carts/{email}/{cart_name}/items")
 async def add_item(email: str, cart_name: str, payload: Item):
     """Add an item to a specific cart."""
@@ -112,7 +112,7 @@ async def add_item(email: str, cart_name: str, payload: Item):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
+#EDITS ITEMS NAME
 @router.put("/carts/{email}/{cart_name}/edit-items")
 async def edit_cart_items(email: str, cart_name: str, payload: ModifyCartRequest):
     """Edit the items of a specific cart."""
@@ -124,8 +124,8 @@ async def edit_cart_items(email: str, cart_name: str, payload: ModifyCartRequest
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-    
+
+#EDITS ITEMS NOTES
 @router.put("/carts/{email}/{cart_name}/items/{item_name}/edit-note")
 async def edit_item_note(email: str, cart_name: str, item_name: str, payload: EditNoteRequest):
     """Edit the note of a specific item in a cart."""
@@ -136,8 +136,7 @@ async def edit_item_note(email: str, cart_name: str, item_name: str, payload: Ed
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
+#DELETE
 @router.delete("/carts/{email}/{cart_name}/items/{item_name}")
 async def remove_item(email: str, cart_name: str, item_name: str):
     """Delete a specific item from a cart."""
