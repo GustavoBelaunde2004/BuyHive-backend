@@ -4,11 +4,13 @@ from typing import List, Optional
 from app.models import (
     save_cart,
     get_carts,
-    update_cart,
     delete_cart,
     add_item_to_cart,
     delete_item,
     add_user_by_email,
+    update_cart_name,
+    update_cart_items,
+    update_item_note
 )
 
 # Define the expected structure of the request body
@@ -25,9 +27,15 @@ class AddCartRequest(BaseModel):
 class ModifyCartRequest(BaseModel):
     items: List[Item]  # List of items for modifying a cart
 
+class EditCartNameRequest(BaseModel):
+    new_name: str
+
+class EditNoteRequest(BaseModel):
+    new_note: str
+
 router = APIRouter()
 
-
+#ADD USER ROUTE
 @router.post("/users/add")
 async def add_user(payload: dict):
     """
@@ -46,7 +54,7 @@ async def add_user(payload: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
+#ADD CART ROUTE
 @router.post("/carts/{email}")
 async def add_cart(email: str, payload: AddCartRequest):
     """Add a new cart for a user."""
@@ -56,26 +64,23 @@ async def add_cart(email: str, payload: AddCartRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+#EDIT CART NAME ROUTE
+@router.put("/carts/{email}/{cart_name}/edit-name")
+async def edit_cart_name(email: str, cart_name: str, payload: EditCartNameRequest):
+    """Edit the name of a specific cart."""
+    try:
+        response = await update_cart_name(email, cart_name, payload.new_name)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
+#RETRIEVE CART NAMES
 @router.get("/carts/{email}")
 async def retrieve_carts(email: str):
     """Get all carts for a user."""
     try:
         carts = await get_carts(email)
         return {"carts": carts}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.put("/carts/{email}/{cart_name}")
-async def modify_cart(email: str, cart_name: str, payload: ModifyCartRequest):
-    """Update items in an existing cart."""
-    try:
-        # Convert Pydantic models to dictionaries
-        items_as_dict = [item.dict() for item in payload.items]
-
-        response = await update_cart(email, cart_name, items_as_dict)
-        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -94,13 +99,43 @@ async def remove_cart(email: str, cart_name: str):
 async def add_item(email: str, cart_name: str, payload: Item):
     """Add an item to a specific cart."""
     try:
-        # Convert the Pydantic model to a dictionary
-        item_as_dict = payload.dict()
+        # Convert Pydantic model to a plain dictionary and ensure HttpUrl is serialized to string
+        item_as_dict = payload.model_dump()
+        if item_as_dict.get("image"):
+            item_as_dict["image"] = str(item_as_dict["image"])
+        if item_as_dict.get("url"):
+            item_as_dict["url"] = str(item_as_dict["url"])
 
+        # Pass the converted dictionary to the model function
         response = await add_item_to_cart(email, cart_name, item_as_dict)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/carts/{email}/{cart_name}/edit-items")
+async def edit_cart_items(email: str, cart_name: str, payload: ModifyCartRequest):
+    """Edit the items of a specific cart."""
+    try:
+        # Convert Pydantic models to dictionaries
+        items_as_dict = [item.dict() for item in payload.items]
+
+        response = await update_cart_items(email, cart_name, items_as_dict)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    
+@router.put("/carts/{email}/{cart_name}/items/{item_name}/edit-note")
+async def edit_item_note(email: str, cart_name: str, item_name: str, payload: EditNoteRequest):
+    """Edit the note of a specific item in a cart."""
+    try:
+        # Call the model function to update the note
+        response = await update_item_note(email, cart_name, item_name, payload.new_note)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.delete("/carts/{email}/{cart_name}/items/{item_name}")

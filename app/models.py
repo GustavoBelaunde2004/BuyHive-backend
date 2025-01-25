@@ -49,21 +49,23 @@ async def save_cart(email: str, cart_name: str):
         return {"message": "No changes made."}
 
 
+async def update_cart_name(email: str, cart_name: str, new_name: str):
+    """Update the name of a specific cart."""
+    result = await cart_collection.update_one(
+        {"email": email, "carts.cart_name": cart_name},
+        {"$set": {"carts.$.cart_name": new_name}}
+    )
+
+    if result.matched_count == 0:
+        return {"message": "Cart not found!"}
+    return {"message": "Cart name updated successfully!"}
+
+
+
 async def get_carts(email: str):
     """Retrieve all carts for a user."""
     user_data = await cart_collection.find_one({"email": email})
     return user_data.get("carts", []) if user_data else []
-
-
-async def update_cart(email: str, cart_name: str, items: list):
-    """Update items in an existing cart."""
-    result = await cart_collection.update_one(
-        {"email": email, "carts.cart_name": cart_name},
-        {"$set": {"carts.$.items": items}}
-    )
-    if result.matched_count == 0:
-        return {"message": "Cart not found!"}
-    return {"message": "Cart updated successfully!"}
 
 
 async def delete_cart(email: str, cart_name: str):
@@ -96,6 +98,33 @@ async def add_item_to_cart(email: str, cart_name: str, item: dict):
     if result.matched_count == 0:
         return {"message": "Cart not found!"}
     return {"message": "Item added successfully!"}
+
+
+async def update_cart_items(email: str, cart_name: str, items: list):
+    """Update items in a specific cart."""
+    result = await cart_collection.update_one(
+        {"email": email, "carts.cart_name": cart_name},
+        {"$set": {"carts.$.items": items}}
+    )
+
+    if result.matched_count == 0:
+        return {"message": "Cart not found!"}
+    return {"message": "Cart items updated successfully!"}
+
+
+async def update_item_note(email: str, cart_name: str, item_name: str, new_note: str):
+    """Update the note of a specific item in a cart."""
+    result = await cart_collection.update_one(
+        {"email": email, "carts.cart_name": cart_name, "carts.items.name": item_name},
+        {"$set": {"carts.$.items.$[item].notes": new_note}},
+        array_filters=[{"item.name": item_name}]
+    )
+
+    if result.matched_count == 0:
+        return {"message": "Item not found!"}
+    return {"message": "Item note updated successfully!"}
+
+
 
 
 async def delete_item(email: str, cart_name: str, item_name: str):
