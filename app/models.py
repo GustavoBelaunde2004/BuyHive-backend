@@ -45,14 +45,15 @@ async def save_cart(email: str, cart_name: str):
     )
 
     if result.upserted_id:
-        return {"message": "Cart created successfully!", "cart_id": cart_id}
+        return {"message": "Cart created successfully!", "cart_id": cart_id, "cart_name": cart_name}
     elif result.modified_count > 0:
-        return {"message": "Cart added successfully!", "cart_id": cart_id}
+        return {"message": "Cart added successfully!", "cart_id": cart_id, "cart_name": cart_name}
     else:
         return {"message": "No changes made."}
 
 # PUT
 async def update_cart_name(email: str, cart_id: str, new_name: str):
+
     """Update the name of a specific cart."""
     result = await cart_collection.update_one(
         {"email": email, "carts.cart_id": cart_id},
