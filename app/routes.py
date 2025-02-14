@@ -12,8 +12,9 @@ from app.models import (
     update_cart_name,
     update_cart_items,
     update_item_note,
-    move_item,
-    duplicate_item_to_cart
+    send_cart_email,
+    add_new_item_across_carts,
+    modify_existing_item_across_carts
 )
 
 # Define the expected structure of the request body
@@ -41,7 +42,45 @@ class CreateCartWithItemRequest(BaseModel):
     cart_name: str
     item: Item
 
+
+# Request body for adding a new item
+class AddNewItemRequest(BaseModel):
+    name: str
+    price: float
+    image: Optional[HttpUrl]  # Optional URL for the product image
+    url: Optional[HttpUrl]    # Optional URL for the product
+    notes: Optional[str]      # Optional notes about the item
+    selected_cart_ids: List[str]  # Carts to add the new item to
+
+# Request body for modifying an existing item
+class ModifyItemAcrossCartsRequest(BaseModel):
+    add_to_cart_ids: List[str]
+    remove_from_cart_ids: List[str]
+
 router = APIRouter()
+
+@router.post("/carts/{email}/share")
+async def share_cart(email: str, cart_id: str, recipient_email: str):
+    """Share a cart by sending its details to the recipient via email."""
+    try:
+        # Retrieve user's carts
+        user_carts = await get_carts(email)
+
+        # Find the cart to share
+        cart_to_share = next((cart for cart in user_carts if cart["cart_id"] == cart_id), None)
+        if not cart_to_share:
+            raise HTTPException(status_code=404, detail="Cart not found")
+
+        cart_name = cart_to_share["cart_name"]
+        cart_items = cart_to_share["items"]
+
+        # Call the email utility
+        sender_email = "your_verified_ses_email@example.com"
+        result = await send_cart_email(sender_email, recipient_email, cart_name, cart_items)
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # USER ROUTES--------------------------------------------------------------------------------------------------------------
 @router.post("/users/add")
@@ -134,12 +173,13 @@ async def edit_cart_items(email: str, cart_id: str, payload: ModifyCartRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # EDIT ITEMS NOTES
-@router.put("/carts/{email}/{cart_id}/items/{item_id}/edit-note")
-async def edit_item_note(email: str, cart_id: str, item_id: str, payload: EditNoteRequest):
-    """Edit the note of a specific item in a cart."""
+@router.put("/carts/{email}/items/{item_id}/edit-note")
+async def edit_item_note(email: str, item_id: str, payload: EditNoteRequest):
+    """
+    Edit the note for all occurrences of the item across all carts.
+    """
     try:
-        # Call the model function to update the note
-        response = await update_item_note(email, cart_id, item_id, payload.new_note)
+        response = await update_item_note(email, item_id, payload.new_note)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -170,39 +210,40 @@ async def create_cart_with_item(email: str, payload: CreateCartWithItemRequest):
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-
-
-@router.put("/carts/{email}/move-item")
-async def move_item_between_carts(email: str, source_cart: str, destination_cart: str, item_name: str):
-    """Move an item from one cart to another."""
-    try:
-        response = await move_item(email, source_cart, destination_cart, item_name)
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
     
 
-
-@router.put("/carts/{email}/duplicate-item")
-async def duplicate_item(email: str, source_cart: str, destination_cart: str, item_name: str):
-    """Duplicate an item from one cart to another."""
+# ROUTE: Add new item across selected carts
+@router.post("/carts/{email}/items/add-new")
+async def add_new_item(email: str, payload: AddNewItemRequest):
+    """
+    Add a new item across selected carts with a unique item_id.
+    """
     try:
-        response = await duplicate_item_to_cart(email, source_cart, destination_cart, item_name)
+        # Convert Pydantic object to a plain dictionary with URLs converted to strings
+        item_details = payload.dict()
+        if item_details.get("image"):
+            item_details["image"] = str(item_details["image"])
+        if item_details.get("url"):
+            item_details["url"] = str(item_details["url"])
+
+        response = await add_new_item_across_carts(email, item_details, payload.selected_cart_ids)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-""""
-@router.post("/carts/{email}/add-item-to-multiple")
-async def add_item_to_multiple_carts(email: str, cart_names: List[str], payload: Item):
-    """ """Add an item to multiple carts.""" """
+# ROUTE: Modify existing item across selected carts
+@router.put("/carts/{email}/items/{item_id}/modify")
+async def modify_existing_item(email: str, item_id: str, payload: ModifyItemAcrossCartsRequest):
+    """
+    Modify an existing item's presence across selected/deselected carts.
+    """
     try:
-        response = await add_item_to_carts(email, cart_names, payload)
+        response = await modify_existing_item_across_carts(
+            email,
+            item_id,
+            payload.add_to_cart_ids,
+            payload.remove_from_cart_ids
+        )
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-"""

@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.openai_parser import parse_inner_text_with_groq
+from app.openai_parser import parse_inner_text_with_groq,parse_images_with_groq
 from app.routes import router as cart_router
+from pydantic import BaseModel
+from typing import List
 
 app = FastAPI()
 
@@ -13,6 +15,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class ImageRequest(BaseModel):
+    image_urls: List[str]
 
 # Register routes
 app.include_router(cart_router)
@@ -36,3 +41,27 @@ async def extract_cart_info(request: Request):
         raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(ve)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+    
+@app.post("/analyze-images")
+async def analyze_images(payload: Request):
+    """Endpoint to analyze and determine the best product image."""
+    try:
+        # Read and decode the request body as plain text
+        input_text = await payload.body()
+        input_text = input_text.decode("utf-8").strip()
+
+        if not input_text:
+            raise HTTPException(status_code=400, detail="Invalid input: Expecting plain text containing image URLs.")
+
+        # Split the input text into URLs (split on whitespace, commas, or newlines)
+        image_urls = [url.strip() for url in input_text.split() if url.strip()]
+
+        if not image_urls:
+            raise HTTPException(status_code=400, detail="No valid image URLs found in the input.")
+
+        # Call the parser function
+        result = parse_images_with_groq(image_urls)
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
