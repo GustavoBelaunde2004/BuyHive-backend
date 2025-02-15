@@ -61,6 +61,7 @@ def parse_inner_text_with_groq(input_text: str):
 def parse_images_with_groq(image_urls: list):
     """
     Send an array of image URLs to Groq and determine the best product image.
+    Returns the selected image URL as plain text instead of JSON.
     """
     if not isinstance(image_urls, list) or not image_urls:
         raise ValueError("Invalid input: Expecting a list of image URLs.")
@@ -70,23 +71,19 @@ def parse_images_with_groq(image_urls: list):
     You are an AI assistant that selects the most relevant product image from a list of image URLs.
     Your goal is to determine which image is most likely to be the **main product image**.
 
-    DONT RENDER THE IMAGES, JUST READ THE URL TO SAVE TIME.
-    
+    DO NOT RENDER THE IMAGES, JUST READ THE URL TO SAVE TIME.
+
     Consider the following factors:
     - Filename or URL patterns (avoid images with names like 'thumbnail', 'icon', 'placeholder', etc.).
     - If multiple images are equally relevant, pick the **first high-quality image**.
-    
-    Below is the list of image URLs, it is a plain text with all the URLs. Select the most relevant one and return only the chosen URL in JSON format:
-    
-    REMEMBER TO RETURN THE ANSWER IN A JSON, otherwise u get a little spank.
+
+    Below is the list of image URLs. Select the most relevant one and return only the chosen URL as plain text.
 
     Image URLs:
     {json.dumps(image_urls, indent=2)}
-    
+
     **Output format:**
-    {{
-        "main_product_image": "selected_image_url"
-    }}
+    Just return the selected image URL as plain text. No JSON, no additional explanation.
     """
 
     try:
@@ -98,23 +95,14 @@ def parse_images_with_groq(image_urls: list):
             temperature=0.3,
         )
 
-        # Parse the response as JSON
+        # Extract plain text response
         result = response.choices[0].message.content.strip()
-        try:
-            # Extract JSON content from Groq's response
-            start_index = result.find("{")
-            end_index = result.rfind("}") + 1
 
-            if start_index == -1 or end_index == -1:
-                raise ValueError("Groq response does not contain valid JSON.")
+        # Ensure it is a valid URL
+        if not result.startswith("http"):
+            raise ValueError(f"Groq returned an invalid URL: {result}")
 
-            json_content = result[start_index:end_index]
-            parsed_result = json.loads(json_content)
-
-        except json.JSONDecodeError:
-            raise ValueError(f"Groq returned invalid JSON: {result}")
-
-        return parsed_result
+        return result  # Return as plain text
 
     except Exception as e:
         raise ValueError(f"Error processing images with Groq: {e}")
