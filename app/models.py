@@ -170,15 +170,19 @@ async def update_item_note(email: str, item_id: str, new_note: str):
             "carts.items.item_id": item_id  # Find any cart containing the item
         },
         {
-            "$set": {"carts.$[].items.$[item].notes": new_note}  # Update all matching items
+            "$set": {"carts.$[cart].items.$[item].notes": new_note}  # Update only matching items
         },
-        array_filters=[{"item.item_id": item_id}]
+        array_filters=[
+            {"cart.items.item_id": item_id},  # Matches carts containing the item
+            {"item.item_id": item_id}  # Matches specific item within the cart
+        ]
     )
 
     if result.modified_count == 0:
         return {"message": "No items were updated. Item not found or no changes made."}
 
     return {"message": f"Successfully updated {result.modified_count} item(s) across carts."}
+
 
 
 # DELETE
