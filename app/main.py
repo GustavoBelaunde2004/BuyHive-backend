@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.openai_parser import parse_inner_text_with_groq,parse_images_with_groq
+from app.openai_parser import parse_images_with_openai,parse_inner_text_with_openai
 from app.routes import router as cart_router
 from pydantic import BaseModel
 from typing import List
@@ -33,7 +33,7 @@ async def extract_cart_info(request: Request):
             raise HTTPException(status_code=400, detail="Invalid input: Expecting plain text input.")
 
         # Call the parser
-        extracted_data = parse_inner_text_with_groq(input_text)
+        extracted_data = parse_inner_text_with_openai(input_text)
 
         return {"cart_items": extracted_data}
 
@@ -60,7 +60,7 @@ async def analyze_images(payload: Request):
             raise HTTPException(status_code=400, detail="No valid image URLs found in the input.")
 
         # Call the parser function
-        result = parse_images_with_groq(image_urls)
+        result = parse_images_with_openai(image_urls)
         return result
 
     except Exception as e:

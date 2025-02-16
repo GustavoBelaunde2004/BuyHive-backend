@@ -147,6 +147,25 @@ async def add_item_to_cart(email: str, cart_id: str, item: dict):
         return {"message": "Cart not found!"}
     return {"message": "Item added successfully!", "item_id": item["item_id"]}
 
+#GET items from cart
+async def retrieve_cart_items(email: str, cart_id: str):
+    """
+    Retrieve all items from a specific cart for a given user.
+    """
+    user_data = await cart_collection.find_one(
+        {"email": email, "carts.cart_id": cart_id},
+        {"carts.$": 1}  # Project only the matching cart
+    )
+
+    if not user_data or "carts" not in user_data or not user_data["carts"]:
+        return {"message": "Cart not found!"}
+
+    # Extract the cart items
+    cart = user_data["carts"][0]
+    return {"cart_id": cart["cart_id"], "cart_name": cart["cart_name"], "items": cart["items"]}
+
+
+
 # PUT (EDIT ALL ITEMS)
 async def update_cart_items(email: str, cart_id: str, items: list):
     """Update all items in a specific cart."""

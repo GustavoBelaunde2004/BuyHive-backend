@@ -14,7 +14,8 @@ from app.models import (
     update_item_note,
     send_cart_email,
     add_new_item_across_carts,
-    modify_existing_item_across_carts
+    modify_existing_item_across_carts,
+    retrieve_cart_items
 )
 
 # Define the expected structure of the request body
@@ -158,6 +159,20 @@ async def add_item(email: str, cart_id: str, payload: Item):
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+#GET ITEMS
+@router.get("/carts/{email}/{cart_id}/items")
+async def get_cart_items(email: str, cart_id: str):
+    """
+    Retrieve all items from a specific cart.
+    """
+    try:
+        response = await retrieve_cart_items(email, cart_id)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 # EDIT ITEMS
 @router.put("/carts/{email}/{cart_id}/edit-items")

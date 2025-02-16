@@ -1,18 +1,18 @@
 import json
-import openai
+from groq import Groq
 
-# OpenAI API key
-OPENAI_API_KEY = "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"
-openai.api_key = OPENAI_API_KEY
+# Groq API key
+GROQ_API_KEY = "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"
+client = Groq(api_key=GROQ_API_KEY)
 
-def parse_inner_text_with_openai(input_text: str):
+def parse_inner_text_with_groq(input_text: str):
     """
-    Send plain innerText to OpenAI and extract product information.
+    Send plain innerText to Groq and extract product information.
     """
     if not isinstance(input_text, str) or not input_text.strip():
         raise ValueError("Invalid input: Expecting plain text input.")
 
-    # Create a prompt for OpenAI
+    # Create a prompt for Groq
     prompt = f"""
     You are an AI that extracts product details from shopping website text.
     Analyze the following text and extract the following information:
@@ -21,50 +21,52 @@ def parse_inner_text_with_openai(input_text: str):
 
     Provide the output as a JSON object with keys 'product_name' and 'price'.
     If a field is missing, use 'null' as the value.
-    Remember to only output the JSON, don't output anything else.
+    Remeber to only output the JSON, dont output anything else.
 
     Text:
     {input_text.strip()}
     """
 
     try:
-        # Send the request to OpenAI
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
+        # Send the request to Groq
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=500,
+            max_completion_tokens=500,
             temperature=0,
         )
 
         # Parse the response as JSON
-        result = response["choices"][0]["message"]["content"].strip()
+        result = response.choices[0].message.content.strip()
         try:
-            # Extract JSON content from OpenAI's response
+            # Extract JSON content from Groq's response, ignoring formatting like triple backticks
             start_index = result.find("{")
             end_index = result.rfind("}") + 1
 
             if start_index == -1 or end_index == -1:
-                raise ValueError("OpenAI response does not contain valid JSON.")
+                raise ValueError("Groq response does not contain valid JSON.")
 
+            # Extract and parse the JSON substring
             json_content = result[start_index:end_index]
             parsed_result = json.loads(json_content)
         except json.JSONDecodeError:
-            raise ValueError(f"OpenAI returned invalid JSON: {result}")
+            raise ValueError(f"Groq returned invalid JSON: {result}")
 
         return parsed_result
 
     except Exception as e:
-        raise ValueError(f"Error parsing text with OpenAI: {e}")
+        raise ValueError(f"Error parsing text with Groq: {e}")
+    
 
-def parse_images_with_openai(image_urls: list):
+def parse_images_with_groq(image_urls: list):
     """
-    Send an array of image URLs to OpenAI and determine the best product image.
+    Send an array of image URLs to Groq and determine the best product image.
     Returns the selected image URL as plain text instead of JSON.
     """
     if not isinstance(image_urls, list) or not image_urls:
         raise ValueError("Invalid input: Expecting a list of image URLs.")
 
-    # Create a prompt for OpenAI
+    # Create a prompt for Groq
     prompt = f"""
     You are an AI assistant that selects the most relevant product image from a list of image URLs.
     Your goal is to determine which image is most likely to be the **main product image**.
@@ -85,22 +87,22 @@ def parse_images_with_openai(image_urls: list):
     """
 
     try:
-        # Send the request to OpenAI
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
+        # Send the request to Groq
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=200,
+            max_completion_tokens=200,
             temperature=0.3,
         )
 
         # Extract plain text response
-        result = response["choices"][0]["message"]["content"].strip()
+        result = response.choices[0].message.content.strip()
 
         # Ensure it is a valid URL
         if not result.startswith("http"):
-            raise ValueError(f"OpenAI returned an invalid URL: {result}")
+            raise ValueError(f"Groq returned an invalid URL: {result}")
 
         return result  # Return as plain text
 
     except Exception as e:
-        raise ValueError(f"Error processing images with OpenAI: {e}")
+        raise ValueError(f"Error processing images with Groq: {e}")
