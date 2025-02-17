@@ -1,21 +1,24 @@
 from datetime import datetime
 from uuid import uuid4  # For generating unique IDs
 from .database import cart_collection
-import boto3
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
-# Initialize SES client
-ses_client = boto3.client('ses', region_name='us')
+import yagmail
 
-# EMAIL FUNCTIONS --------------------------------------------------------------------------------------------------------------
-async def send_cart_email(sender_email: str, recipient_email: str, cart_name: str, cart_items: list):
+# Your Gmail credentials
+GMAIL_USER = "gabelaunde@gmail.com"
+GMAIL_PASSWORD = "hqtq alsv aqch uoad"
+
+yag = yagmail.SMTP(GMAIL_USER, GMAIL_PASSWORD)
+
+def send_email_gmail(recipient_email, cart_name, cart_items):
+    """Send an email using Gmail SMTP with Yagmail."""
     subject = f"Shared Cart: {cart_name}"
-    
-    # Format cart items into a readable list
+
+    # Format cart items
     item_list = "\n".join([f"- {item['name']} (${item['price']})" for item in cart_items])
-    
+
     body_text = f"""
-    You've received a shart cart named '{cart_name}'.
+    You've received a shared cart: '{cart_name}'.
 
     Items:
     {item_list}
@@ -24,28 +27,11 @@ async def send_cart_email(sender_email: str, recipient_email: str, cart_name: st
     """
 
     try:
-        # Send the email
-        response = ses_client.send_email(
-            Source=sender_email,
-            Destination={
-                'ToAddresses': [recipient_email]
-            },
-            Message={
-                'Subject': {
-                    'Data': subject
-                },
-                'Body': {
-                    'Text': {
-                        'Data': body_text
-                    }
-                }
-            }
-        )
-        return {"message": "Email sent successfully!", "MessageId": response['MessageId']}
-    except (NoCredentialsError, PartialCredentialsError) as e:
-        return {"error": f"AWS credentials issue: {str(e)}"}
+        yag.send(to=recipient_email, subject=subject, contents=body_text)
+        return {"message": "Email sent successfully!"}
     except Exception as e:
-        return {"error": f"Failed to send email: {str(e)}"}
+        return {"error": str(e)}
+
 
 # USER FUNCTIONS --------------------------------------------------------------------------------------------------------------
 async def add_user_by_email(email: str, name: str = "Unknown"):
