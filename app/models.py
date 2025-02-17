@@ -150,20 +150,6 @@ async def retrieve_cart_items(email: str, cart_id: str):
     cart = user_data["carts"][0]
     return {"cart_id": cart["cart_id"], "cart_name": cart["cart_name"], "items": cart["items"]}
 
-
-
-# PUT (EDIT ALL ITEMS)
-async def update_cart_items(email: str, cart_id: str, items: list):
-    """Update all items in a specific cart."""
-    result = await cart_collection.update_one(
-        {"email": email, "carts.cart_id": cart_id},
-        {"$set": {"carts.$.items": items}}
-    )
-
-    if result.matched_count == 0:
-        return {"message": "Cart not found!"}
-    return {"message": "Cart items updated successfully!"}
-
 # PUT (Edits notes for all apereances of saem item in every car per user)
 async def update_item_note(email: str, item_id: str, new_note: str):
     """

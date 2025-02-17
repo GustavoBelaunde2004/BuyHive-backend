@@ -10,7 +10,6 @@ from app.models import (
     delete_item,
     add_user_by_email,
     update_cart_name,
-    update_cart_items,
     update_item_note,
     send_email_gmail,
     add_new_item_across_carts,
@@ -27,10 +26,10 @@ class Item(BaseModel):
     notes: Optional[str]      # Optional notes about the item
 
 class AddCartRequest(BaseModel):
-    cart_name: str  # The name of the new cart
+    cart_name: str 
 
 class ModifyCartRequest(BaseModel):
-    items: List[Item]  # List of items for modifying a cart
+    items: List[Item]
 
 class EditCartNameRequest(BaseModel):
     new_name: str
@@ -38,11 +37,9 @@ class EditCartNameRequest(BaseModel):
 class EditNoteRequest(BaseModel):
     new_note: str
 
-#TEST
 class CreateCartWithItemRequest(BaseModel):
     cart_name: str
     item: Item
-
 
 # Request body for adding a new item
 class AddNewItemRequest(BaseModel):
@@ -89,7 +86,7 @@ async def add_user(payload: dict):
     Expects a JSON payload with 'email' (required) and optional 'name'.
     """
     email = payload.get("email")
-    name = payload.get("name", "Unknown")  # Default name if not provided
+    name = payload.get("name", "Unknown")
 
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
@@ -145,7 +142,6 @@ async def remove_cart(email: str, cart_id: str):
 async def add_item(email: str, cart_id: str, payload: Item):
     """Add an item to a specific cart."""
     try:
-        # Convert Pydantic model to a plain dictionary and ensure HttpUrl is serialized to string
         item_as_dict = payload.model_dump()
         if item_as_dict.get("image"):
             item_as_dict["image"] = str(item_as_dict["image"])
@@ -166,21 +162,6 @@ async def get_cart_items(email: str, cart_id: str):
     """
     try:
         response = await retrieve_cart_items(email, cart_id)
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-
-# EDIT ITEMS
-@router.put("/carts/{email}/{cart_id}/edit-items")
-async def edit_cart_items(email: str, cart_id: str, payload: ModifyCartRequest):
-    """Edit the items of a specific cart."""
-    try:
-        # Convert Pydantic models to dictionaries
-        items_as_dict = [item.dict() for item in payload.items]
-
-        response = await update_cart_items(email, cart_id, items_as_dict)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -208,22 +189,6 @@ async def remove_item(email: str, cart_id: str, item_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 #TEST---------------------------------------------------------------------------------------------------------------------------------------------
-
-@router.post("/carts/{email}/create-with-item")
-async def create_cart_with_item(email: str, payload: CreateCartWithItemRequest):
-    """Create a new cart and add an item to it."""
-    try:
-        # Convert item to dictionary
-        item_as_dict = payload.item.model_dump()
-        # Add timestamp to the item
-        item_as_dict["added_at"] = datetime.utcnow().isoformat()
-
-        # Create the cart and add the item
-        response = await save_cart(email, payload.cart_name, [item_as_dict])
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
 
 # ROUTE: Add new item across selected carts
 @router.post("/carts/{email}/items/add-new")
