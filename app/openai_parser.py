@@ -56,10 +56,9 @@ def parse_inner_text_with_openai(input_text: str):
     except Exception as e:
         raise ValueError(f"Error parsing text with OpenAI: {e}")
 
-def parse_images_with_openai(image_urls: list):
+def parse_images_with_openai(page_url: str, product_name: str, image_urls: list):
     """
-    Send an array of image URLs to OpenAI and determine the best product image.
-    Returns the selected image URL as plain text instead of JSON.
+    Uses OpenAI to determine the best product image based on the page URL and product name.
     """
     if not isinstance(image_urls, list) or not image_urls:
         raise ValueError("Invalid input: Expecting a list of image URLs.")
@@ -67,40 +66,31 @@ def parse_images_with_openai(image_urls: list):
     # Create a prompt for OpenAI
     prompt = f"""
     You are an AI assistant that selects the most relevant product image from a list of image URLs.
+    **Page URL:** {page_url}
+    **Product Name:** {product_name}
     Your goal is to determine which image is most likely to be the **main product image**.
-
-    DO NOT RENDER THE IMAGES, JUST READ THE URL TO SAVE TIME.
-
-    Consider the following factors:
-    - Filename or URL patterns (avoid images with names like 'thumbnail', 'icon', 'placeholder', etc.).
-    - If multiple images are equally relevant, pick the **first high-quality image**.
-
     Below is the list of image URLs. Select the most relevant one and return only the chosen URL as plain text.
-
-    Image URLs:
+    **Image URLs:**
     {json.dumps(image_urls, indent=2)}
-
     **Output format:**
     Just return the selected image URL as plain text. No JSON, no additional explanation.
     """
 
     try:
-        # Send the request to OpenAI
         response = openai.ChatCompletion.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=200,
-            temperature=0.3,
+            max_tokens=85,
+            temperature=0,
         )
 
         # Extract plain text response
         result = response["choices"][0]["message"]["content"].strip()
 
-        # Ensure it is a valid URL
         if not result.startswith("http"):
             raise ValueError(f"OpenAI returned an invalid URL: {result}")
 
-        return result  # Return as plain text
+        return result
 
     except Exception as e:
         raise ValueError(f"Error processing images with OpenAI: {e}")

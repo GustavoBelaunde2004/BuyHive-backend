@@ -17,7 +17,8 @@ app.add_middleware(
 )
 
 class ImageRequest(BaseModel):
-    image_urls: List[str]
+    page_url: str
+    image_urls: str
 
 # Register routes
 app.include_router(cart_router)
@@ -43,25 +44,42 @@ async def extract_cart_info(request: Request):
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     
 @app.post("/analyze-images")
-async def analyze_images(payload: Request):
+async def analyze_images(payload: ImageRequest):
     """Endpoint to analyze and determine the best product image."""
     try:
-        # Read and decode the request body as plain text
-        input_text = await payload.body()
-        input_text = input_text.decode("utf-8").strip()
+        if not payload.page_url or not payload.image_urls.strip():
+            raise HTTPException(status_code=400, detail="Missing page_url or image_urls.")
 
-        if not input_text:
-            raise HTTPException(status_code=400, detail="Invalid input: Expecting plain text containing image URLs.")
+        # Extract product name from page URL
+        product_name = extract_product_name_from_url(payload.page_url)
 
-        # Split the input text into URLs (split on whitespace, commas, or newlines)
-        image_urls = [url.strip() for url in input_text.split() if url.strip()]
+        print(product_name)
+
+        # Convert comma-separated URLs to a list
+        image_urls = [url.strip() for url in payload.image_urls.split(",") if url.strip()]
 
         if not image_urls:
-            raise HTTPException(status_code=400, detail="No valid image URLs found in the input.")
+            raise HTTPException(status_code=400, detail="No valid image URLs found.")
 
-        # Call the parser function
-        result = parse_images_with_openai(image_urls)
+        # Call OpenAI function
+        result = parse_images_with_openai(payload.page_url, product_name, image_urls)
+        
         return result
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+def extract_product_name_from_url(url: str) -> str:
+    """Extracts the product name from a URL by removing domain and numeric IDs."""
+    from urllib.parse import urlparse
+
+    parsed_url = urlparse(url)
+    path_parts = parsed_url.path.split("/")  # Extract path sections
+
+    # Remove numeric segments (likely product IDs)
+    words = [part for part in path_parts if not part.isdigit() and len(part) > 2]
+
+    # Join cleaned segments
+    product_name = " ".join(words).replace("-", " ").replace("_", " ").strip()
+
+    return product_name if product_name else "Unknown Product"
