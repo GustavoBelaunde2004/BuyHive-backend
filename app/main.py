@@ -60,6 +60,9 @@ async def analyze_images(payload: ImageRequest):
 
         if not image_urls:
             raise HTTPException(status_code=400, detail="No valid image URLs found.")
+        
+        #FILTERING
+        #filtered_image_urls = filter_images(product_name=product_name,image_urls=image_urls)
 
         # Call OpenAI function
         result = parse_images_with_openai(payload.page_url, product_name, image_urls)
@@ -81,5 +84,37 @@ def extract_product_name_from_url(url: str) -> str:
 
     # Join cleaned segments
     product_name = " ".join(words).replace("-", " ").replace("_", " ").strip()
+    #print(product_name)
 
     return product_name if product_name else "Unknown Product"
+
+def filter_images(image_urls: list, product_name: str) -> list:
+    """Filters out irrelevant images while keeping relevant ones for any shopping website."""
+    filtered_urls = []
+    product_name_lower = product_name.lower()
+
+    for url in image_urls:
+        url_lower = url.lower()
+
+        # Exclude bad keywords
+        if any(bad_word in url_lower for bad_word in ["thumbnail", "icon", "logo", "banner", "ads", "promo"]):
+            continue
+
+        # Exclude SVGs (usually UI elements, not real product images)
+        if url_lower.endswith(".svg"):
+            continue
+
+        # Keep URLs that contain the product name (best indicator)
+        if product_name_lower in url_lower:
+            filtered_urls.insert(0, url)
+
+        # Prioritize URLs that include common product image markers
+        elif any(keyword in url_lower for keyword in ["product", "main", "large", "featured", "media"]):
+            filtered_urls.append(url)
+
+        # Only keep URLs with valid image extensions
+        #elif url_lower.endswith((".jpeg", ".jpg", ".png")):
+        #    filtered_urls.append(url)
+        print(filtered_urls)
+
+    return filtered_urls

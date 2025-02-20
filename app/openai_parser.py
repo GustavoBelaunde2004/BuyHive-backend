@@ -81,7 +81,7 @@ def parse_images_with_openai(page_url: str, product_name: str, image_urls: list)
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=85,
-            temperature=0,
+            temperature=0.2,
         )
 
         # Extract plain text response
