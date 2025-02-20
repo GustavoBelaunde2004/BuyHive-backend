@@ -222,9 +222,14 @@ async def update_item_note(email: str, item_id: str, new_note: str):
 
     return {"message": f"Successfully updated {result.modified_count} item(s) across carts."}
 
-# DELETE
+#DELETE
 async def delete_item(email: str, cart_id: str, item_id: str):
-    """Delete a specific item from a cart and update the item count."""
+    """
+    Delete a specific item from a cart and update its selected_cart_ids.
+    If the item is in other carts, remove the cart from selected_cart_ids.
+    If it’s the last cart, fully remove the item.
+    """
+    # Step 1: Remove the item from the specific cart
     result = await cart_collection.update_one(
         {"email": email, "carts.cart_id": cart_id},
         {
@@ -232,9 +237,24 @@ async def delete_item(email: str, cart_id: str, item_id: str):
             "$inc": {"carts.$.item_count": -1}
         }
     )
-    if result.modified_count == 0:
-        return {"message": "Cart or item not found!"}
-    return {"message": "Item deleted successfully!"}
+
+    # Step 2: Check if the item exists in any other carts
+    user_data = await cart_collection.find_one(
+        {"email": email, "carts.items.item_id": item_id},
+        {"carts.items.$": 1}
+    )
+
+    if user_data:
+        # Item still exists in other carts, update `selected_cart_ids`
+        await cart_collection.update_many(
+            {"email": email, "carts.items.item_id": item_id},
+            {"$pull": {"carts.$[].items.$[item].selected_cart_ids": cart_id}},
+            array_filters=[{"item.item_id": item_id}]
+        )
+        return {"message": f"Item removed from cart {cart_id}, updated selected_cart_ids."}
+    
+    return {"message": "Item fully deleted from all carts."} if result.modified_count else {"message": "Cart or item not found!"}
+
 
 
 #TEST---------------------------------------------------------------------------------------------------------------------------------------------

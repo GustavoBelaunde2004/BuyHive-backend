@@ -178,15 +178,20 @@ async def edit_item_note(email: str, item_id: str, payload: EditNoteRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# DELETE
+# DELETE ITEM
 @router.delete("/carts/{email}/{cart_id}/items/{item_id}")
 async def remove_item(email: str, cart_id: str, item_id: str):
-    """Delete a specific item from a cart."""
+    """
+    Delete a specific item from a cart and update its selected_cart_ids.
+    If the item is in other carts, remove the cart_id from selected_cart_ids.
+    If the item is only in one cart, fully delete it.
+    """
     try:
         response = await delete_item(email, cart_id, item_id)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 #TEST---------------------------------------------------------------------------------------------------------------------------------------------
 
