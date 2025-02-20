@@ -11,23 +11,71 @@ GMAIL_PASSWORD = "hqtq alsv aqch uoad"
 yag = yagmail.SMTP(GMAIL_USER, GMAIL_PASSWORD)
 
 def send_email_gmail(recipient_email, cart_name, cart_items):
-    """Send an email using Gmail SMTP with Yagmail."""
-    subject = f"Shared Cart: {cart_name}"
+    """Send a professional email with improved spacing and a working dark mode banner fix."""
+    subject = f"Your Shared Cart: {cart_name}"
 
-    # Format cart items
-    item_list = "\n".join([f"- {item['name']} (${item['price']})" for item in cart_items])
+    # BuyHive banner with explicit padding and dark mode fix
+    banner_color_light = "hsl(42, 95%, 66%)"  # Default color
+    banner_color_dark = "hsl(42, 100%, 75%)"  # Brighter for dark mode
 
-    body_text = f"""
-    You've received a shared cart: '{cart_name}'.
+    header_html = f"""
+    <div class="banner" style="background-color: {banner_color_light}; padding: 12px 20px;margin-top: 0px;margin-bottom: 0px;; text-align: center;">
+        <h1 style="color: white; font-size: 24px; margin: 0;">BuyHive 🛒</h1>
+    </div>
+    """
 
-    Items:
-    {item_list}
+    # Force the correct color in dark mode
+    header_html += f"""
+    <div style="display:none; color-scheme:dark; background-color: {banner_color_dark} !important;">
+        <h1 style="color: white !important;">BuyHive 🛒</h1>
+    </div>
+    """
 
-    Happy Shopping!
+    # Cart name section with better spacing
+    cart_html = f"""
+    <div style="padding: 5px 5px; text-align: center;">
+        <h2 style="color: #333; font-size: 20px; margin-bottom: 0px;">Your Shared Cart: <strong>{cart_name}</strong></h2>
+        <p style="color: #666; font-size: 14px; margin-top: 0px; margin-bottom: 0px;">Here are the items you’ve added:</p>
+    </div>
+    """
+
+    # Product listing with better spacing
+    items_html = "".join([
+        f"""
+        <div style="display: flex; align-items: center; padding: 10px 15px; border-bottom: 1px solid #ddd;">
+            <img src="{item['image']}" alt="{item['name']}" style="width: 70px; height: 70px; border-radius: 8px; margin-right: 12px;">
+            <div>
+                <h3 style="margin: 0; color: #333; font-size: 16px;">{item['name']}</h3>
+                <p style="margin: 3px 0; font-size: 14px; color: #666;">${item['price']}</p>
+            </div>
+        </div>
+        """ for item in cart_items
+    ])
+
+    # Footer with better spacing
+    footer_html = """
+    <div style="padding: 5px; text-align: center; color: #999; font-size: 12px;">
+        <p style="margin: 0;margin-top: 0px;">Thank you for using BuyHive! 🐝</p>
+        <p style="font-size: 10px; margin-top: 5px;">Need help? <a href="#" style="color: #555; text-decoration: none;">Contact Support</a></p>
+    </div>
+    """
+
+    # Combine all sections
+    body_html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f9f9f9;">
+        {header_html}
+        <div style="background-color: white; max-width: 600px; margin: 5px auto; border-radius: 10px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); overflow: hidden;">
+            {cart_html}
+            <div style="padding: 5px;">{items_html}</div>
+        </div>
+        {footer_html}
+    </body>
+    </html>
     """
 
     try:
-        yag.send(to=recipient_email, subject=subject, contents=body_text)
+        yag.send(to=recipient_email, subject=subject, contents=body_html)
         return {"message": "Email sent successfully!"}
     except Exception as e:
         return {"error": str(e)}
@@ -173,8 +221,6 @@ async def update_item_note(email: str, item_id: str, new_note: str):
         return {"message": "No items were updated. Item not found or no changes made."}
 
     return {"message": f"Successfully updated {result.modified_count} item(s) across carts."}
-
-
 
 # DELETE
 async def delete_item(email: str, cart_id: str, item_id: str):
