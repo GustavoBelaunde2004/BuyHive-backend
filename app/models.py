@@ -11,7 +11,7 @@ GMAIL_PASSWORD = "hqtq alsv aqch uoad"
 yag = yagmail.SMTP(GMAIL_USER, GMAIL_PASSWORD)
 
 def send_email_gmail(recipient_email, cart_name, cart_items):
-    """Send a professional email with improved spacing and a working dark mode banner fix."""
+    """Send a professional email with optimized spacing (no extra <br> tags)."""
     subject = f"Your Shared Cart: {cart_name}"
 
     # BuyHive banner with explicit padding and dark mode fix
@@ -19,34 +19,35 @@ def send_email_gmail(recipient_email, cart_name, cart_items):
     banner_color_dark = "hsl(42, 100%, 75%)"  # Brighter for dark mode
 
     header_html = f"""
-    <div class="banner" style="background-color: {banner_color_light}; padding: 12px 20px;margin-top: 0px;margin-bottom: 0px;; text-align: center;">
-        <h1 style="color: white; font-size: 24px; margin: 0;">BuyHive 🛒</h1>
+    <div class="banner" style="background-color: {banner_color_light}; padding: 12px 20px; text-align: center; margin: 0;">
+        <h1 style="color: white; font-size: 24px; margin: 0; padding: 0; line-height: 1.2; display: block;">BuyHive</h1>
     </div>
     """
 
     # Force the correct color in dark mode
     header_html += f"""
     <div style="display:none; color-scheme:dark; background-color: {banner_color_dark} !important;">
-        <h1 style="color: white !important;">BuyHive 🛒</h1>
+        <h1 style="color: white !important; margin: 0; padding: 0; line-height: 1.2; display: block;">BuyHive 🛒</h1>
     </div>
     """
 
-    # Cart name section with better spacing
+    # Cart name section
     cart_html = f"""
-    <div style="padding: 5px 5px; text-align: center;">
-        <h2 style="color: #333; font-size: 20px; margin-bottom: 0px;">Your Shared Cart: <strong>{cart_name}</strong></h2>
-        <p style="color: #666; font-size: 14px; margin-top: 0px; margin-bottom: 0px;">Here are the items you’ve added:</p>
+    <div style="padding: 5px 5px; text-align: center; margin: 0;">
+        <h2 style="color: #333; font-size: 20px; margin: 0; padding: 0; line-height: 1.2; display: block;">Your Shared Cart: <strong>{cart_name}</strong></h2>
+        <p style="color: #666; font-size: 14px; margin: 0; padding: 0; line-height: 1.2; display: block;">Here are the items you’ve added:</p>
     </div>
     """
 
-    # Product listing with better spacing
+    # Product listing with notes added
     items_html = "".join([
         f"""
-        <div style="display: flex; align-items: center; padding: 10px 15px; border-bottom: 1px solid #ddd;">
+        <div style="display: flex; align-items: center; padding: 10px 15px; border-bottom: 1px solid #ddd; margin: 0;">
             <img src="{item['image']}" alt="{item['name']}" style="width: 70px; height: 70px; border-radius: 8px; margin-right: 12px;">
             <div>
-                <h3 style="margin: 0; color: #333; font-size: 16px;">{item['name']}</h3>
-                <p style="margin: 3px 0; font-size: 14px; color: #666;">${item['price']}</p>
+                <h3 style="margin: 0; padding: 0; color: #333; font-size: 16px; line-height: 1.2; display: block;">{item['name']}</h3>
+                <p style="margin: 3px 0 0 0; padding: 0; font-size: 14px; color: #666; line-height: 1.2; display: block;">${item['price']}</p>
+                {"<p style='font-size: 13px; color: #888; font-style: italic; margin: 3px 0 0 0; padding: 0; line-height: 1.2; display: block;'>Note: " + item['notes'] + "</p>" if 'notes' in item and item['notes'] else ""}
             </div>
         </div>
         """ for item in cart_items
@@ -54,9 +55,9 @@ def send_email_gmail(recipient_email, cart_name, cart_items):
 
     # Footer with better spacing
     footer_html = """
-    <div style="padding: 5px; text-align: center; color: #999; font-size: 12px;">
-        <p style="margin: 0;margin-top: 0px;">Thank you for using BuyHive! 🐝</p>
-        <p style="font-size: 10px; margin-top: 5px;">Need help? <a href="#" style="color: #555; text-decoration: none;">Contact Support</a></p>
+    <div style="padding: 5px; text-align: center; color: #999; font-size: 12px; margin: 0;">
+        <p style="margin: 0; padding: 0; line-height: 1.2; display: block;">Thank you for using BuyHive! 🐝</p>
+        <p style="font-size: 10px; margin: 5px 0 0 0; padding: 0; line-height: 1.2; display: block;">Need help? <a href="#" style="color: #555; text-decoration: none;">Contact Support</a></p>
     </div>
     """
 
@@ -67,7 +68,7 @@ def send_email_gmail(recipient_email, cart_name, cart_items):
         {header_html}
         <div style="background-color: white; max-width: 600px; margin: 5px auto; border-radius: 10px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); overflow: hidden;">
             {cart_html}
-            <div style="padding: 5px;">{items_html}</div>
+            <div style="padding: 5px; margin: 0;">{items_html}</div>
         </div>
         {footer_html}
     </body>
@@ -284,11 +285,13 @@ async def add_new_item_across_carts(email: str, item_details: dict, selected_car
 async def modify_existing_item_across_carts(email: str, item_id: str, add_to_cart_ids: list, remove_from_cart_ids: list):
     """
     Modify an existing item's presence across selected/deselected carts.
+    Ensures the item is added only if it's not already present, and removed only if it exists.
     """
+
     # Step 1: Find the item details from any cart
     user_data = await cart_collection.find_one(
         {"email": email, "carts.items.item_id": item_id},
-        {"carts.$": 1}
+        {"carts.items.$": 1}  # This will retrieve only the first matching cart with the item
     )
 
     if not user_data or "carts" not in user_data or not user_data["carts"]:
@@ -296,7 +299,7 @@ async def modify_existing_item_across_carts(email: str, item_id: str, add_to_car
 
     # Retrieve item details
     item = next(
-        (i for i in user_data["carts"][0]["items"] if i["item_id"] == item_id),
+        (i for c in user_data["carts"] for i in c["items"] if i["item_id"] == item_id),
         None
     )
 
@@ -313,18 +316,26 @@ async def modify_existing_item_across_carts(email: str, item_id: str, add_to_car
             }
         )
 
-    # Step 3: Add the item to newly selected carts
+    # Step 3: Add the item to newly selected carts **only if it's not already there**
     if add_to_cart_ids:
         for cart_id in add_to_cart_ids:
-            item_copy = item.copy()
-            item_copy["added_at"] = datetime.utcnow().isoformat()  # Update timestamp
-            await cart_collection.update_one(
-                {"email": email, "carts.cart_id": cart_id},
-                {
-                    "$push": {"carts.$.items": item_copy},
-                    "$inc": {"carts.$.item_count": 1}
-                }
+            # Check if item is already in this cart before adding
+            cart_data = await cart_collection.find_one(
+                {"email": email, "carts.cart_id": cart_id, "carts.items.item_id": item_id}
             )
 
+            if not cart_data:  # If item is NOT in the cart, then add it
+                item_copy = item.copy()
+                item_copy["added_at"] = datetime.utcnow().isoformat()  # Update timestamp
+                
+                await cart_collection.update_one(
+                    {"email": email, "carts.cart_id": cart_id},
+                    {
+                        "$push": {"carts.$.items": item_copy},
+                        "$inc": {"carts.$.item_count": 1}
+                    }
+                )
+
     return {"message": "Item successfully modified across selected carts."}
+
 
