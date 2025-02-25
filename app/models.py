@@ -268,7 +268,7 @@ async def add_new_item_across_carts(email: str, item_details: dict, selected_car
     item_details["item_id"] = str(uuid4())  # Generate unique item_id
     item_details["added_at"] = datetime.utcnow().isoformat()
 
-    # Step 1: Add the item to each selected cart
+    #Add the item to each selected cart
     for cart_id in selected_cart_ids:
         item_copy = item_details.copy()
         await cart_collection.update_one(
@@ -284,74 +284,67 @@ async def add_new_item_across_carts(email: str, item_details: dict, selected_car
 # MODIFY EXISTING ITEM ACROSS CARTS
 async def modify_existing_item_across_carts(email: str, item_id: str, selected_cart_ids: list):
     """
-    Move an existing item between selected carts.
-    - Ensures the item is **added** to selected carts **if not already there**.
+    Move an existing item across selected carts.
+    - Ensures the item is **added** to selected carts if not already there.
     - Ensures the item is **removed** from deselected carts.
-    - Updates the `selected_cart_ids` attribute correctly.
+    - Updates the `selected_cart_ids` attribute correctly in all carts.
     """
 
-    # Step 1: Retrieve the item details from ANY cart
+    # Step 1: Retrieve all carts for this user
     user_data = await cart_collection.find_one(
-        {"email": email, "carts.items.item_id": item_id},
-        {"carts.items.$": 1}  # Retrieve the first cart that contains this item
+        {"email": email},
+        {"carts.cart_id": 1, "carts.items": 1}  # Fetch only cart IDs and items
     )
 
-    if not user_data or "carts" not in user_data or not user_data["carts"]:
-        return {"message": "Item not found!"}
+    if not user_data or "carts" not in user_data:
+        return {"message": "No carts found for this user."}
 
-    # Extract the item details
-    item = next(
-        (i for c in user_data["carts"] for i in c["items"] if i["item_id"] == item_id),
-        None
-    )
+    # Step 2: Identify where the item currently exists & Extract item details
+    current_cart_ids = set()
+    item = None  # Placeholder for item data
+
+    for cart in user_data["carts"]:
+        for cart_item in cart["items"]:
+            if cart_item["item_id"] == item_id:
+                current_cart_ids.add(cart["cart_id"])
+                if item is None:  # Store the first found instance of the item
+                    item = cart_item
 
     if not item:
         return {"message": "Item not found!"}
 
-    # Step 2: Get all the carts the item is currently in
-    existing_carts = await cart_collection.find(
-        {"email": email, "carts.items.item_id": item_id},
-        {"carts.cart_id": 1}
-    ).to_list(length=None)
+    # Step 3: Identify which carts need removal and addition
+    remove_from_cart_ids = list(current_cart_ids - set(selected_cart_ids))  # Carts where item needs to be removed
+    add_to_cart_ids = list(set(selected_cart_ids) - current_cart_ids)  # Carts where item needs to be added
 
-    current_cart_ids = [c["carts"][0]["cart_id"] for c in existing_carts if c.get("carts")]
+    print("remove carts: ", remove_from_cart_ids)
+    print("add carts: ", add_to_cart_ids)
 
-    # Determine carts to remove from (carts that are not in `selected_cart_ids`)
-    remove_from_cart_ids = list(set(current_cart_ids) - set(selected_cart_ids))
-
-    # Step 3: Remove the item from carts that are no longer selected
+    # Step 4: Remove the item from deselected carts
     if remove_from_cart_ids:
         await cart_collection.update_many(
+            {"email": email, "carts.cart_id": {"$in": remove_from_cart_ids}},
             {
-                "email": email,
-                "carts.cart_id": {"$in": remove_from_cart_ids},
-                "carts.items.item_id": item_id
-            },
-            {
-                "$pull": {"carts.$.items": {"item_id": item_id}},
-                "$inc": {"carts.$.item_count": -1}
+                "$pull": {"carts.$.items": {"item_id": item_id}},  # Remove the item
+                "$inc": {"carts.$.item_count": -1}  # Decrement the item count
             }
         )
 
-    # Step 4: Add the item to selected carts (if not already there)
-    for cart_id in selected_cart_ids:
-        cart_data = await cart_collection.find_one(
-            {"email": email, "carts.cart_id": cart_id, "carts.items.item_id": item_id}
-        )
-
-        if not cart_data:  # If item is NOT in this cart, add it
+    # Step 5: Add the item to selected carts **(even if they are not empty)**
+    if add_to_cart_ids:
+        for cart_id in add_to_cart_ids:
             item_copy = item.copy()
-            item_copy.pop("added_at", None)  # Ensure the original timestamp is not modified
+            item_copy.pop("added_at", None)  # Keep the original timestamp
 
             await cart_collection.update_one(
                 {"email": email, "carts.cart_id": cart_id},
                 {
-                    "$push": {"carts.$.items": item_copy},
+                    "$push": {"carts.$.items": item_copy},  # Ensure item is added to all selected carts
                     "$inc": {"carts.$.item_count": 1}
                 }
             )
 
-    # Step 5: Update `selected_cart_ids` for all occurrences of the item
+    # Step 6: Ensure `selected_cart_ids` is correctly updated in **all occurrences** of the item
     updated_cart_ids = list(set(selected_cart_ids))  # Remove duplicates
     await cart_collection.update_many(
         {"email": email, "carts.items.item_id": item_id},
