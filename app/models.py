@@ -264,11 +264,32 @@ async def delete_item(email: str, cart_id: str, item_id: str):
 async def add_new_item_across_carts(email: str, item_details: dict, selected_cart_ids: list):
     """
     Add a new item with a unique item_id across selected carts.
+    Prevents adding duplicate items (same URL) that already exist in any of the user's carts.
     """
-    item_details["item_id"] = str(uuid4())  # Generate unique item_id
+
+    # Step 1: Check if the item (by URL) already exists in any of the user's carts
+    existing_item = await cart_collection.find_one(
+        {"email": email, "carts.items.url": item_details["url"]},
+        {"carts.cart_id": 1, "carts.cart_name": 1, "carts.items.$": 1}
+    )
+
+    if existing_item and "carts" in existing_item:
+        # Find the cart where the item already exists
+        existing_cart = next(
+            (cart for cart in existing_item["carts"] if any(i["url"] == item_details["url"] for i in cart["items"])),
+            None
+        )
+
+        if existing_cart:
+            return {
+                "message": f"Item already exists in '{existing_cart['cart_name']}'. Move it instead."
+            }
+
+    # Step 2: Generate a new unique item ID
+    item_details["item_id"] = str(uuid4())  
     item_details["added_at"] = datetime.utcnow().isoformat()
 
-    #Add the item to each selected cart
+    # Step 3: Add the item to each selected cart
     for cart_id in selected_cart_ids:
         item_copy = item_details.copy()
         await cart_collection.update_one(
@@ -280,6 +301,7 @@ async def add_new_item_across_carts(email: str, item_details: dict, selected_car
         )
 
     return {"message": "New item added successfully across selected carts."}
+
 
 # MODIFY EXISTING ITEM ACROSS CARTS
 async def modify_existing_item_across_carts(email: str, item_id: str, selected_cart_ids: list):
