@@ -215,18 +215,14 @@ async def add_new_item(email: str, payload: AddNewItemRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ROUTE: Modify existing item across selected carts
-@router.put("/carts/{email}/items/{item_id}/modify")
-async def modify_existing_item(email: str, item_id: str, payload: ModifyItemAcrossCartsRequest):
+@router.put("/carts/{email}/items/{item_id}/move")
+async def move_item(email: str, item_id: str, payload: dict):
     """
-    Modify an existing item's presence across selected/deselected carts.
+    Move an existing item across selected carts.
     """
     try:
-        response = await modify_existing_item_across_carts(
-            email,
-            item_id,
-            payload.add_to_cart_ids,
-            payload.remove_from_cart_ids
-        )
+        selected_cart_ids = payload.get("selected_cart_ids", [])
+        response = await modify_existing_item_across_carts(email, item_id, selected_cart_ids)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
