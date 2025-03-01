@@ -1,12 +1,8 @@
 from datetime import datetime
-from uuid import uuid4  # For generating unique IDs
+from uuid import uuid4
 from .database import cart_collection
-
 import yagmail
-
-# Your Gmail credentials
-GMAIL_USER = "gabelaunde@gmail.com"
-GMAIL_PASSWORD = "hqtq alsv aqch uoad"
+from config import GMAIL_PASSWORD, GMAIL_USER
 
 yag = yagmail.SMTP(GMAIL_USER, GMAIL_PASSWORD)
 
@@ -203,25 +199,41 @@ async def retrieve_cart_items(email: str, cart_id: str):
 async def update_item_note(email: str, item_id: str, new_note: str):
     """
     Update the note for all occurrences of the item across all carts of a user.
+    Returns the updated item details.
     """
+
+    # Step 1: Update the note for all occurrences of the item
     result = await cart_collection.update_many(
         {
             "email": email,
             "carts.items.item_id": item_id  # Find any cart containing the item
         },
         {
-            "$set": {"carts.$[cart].items.$[item].notes": new_note}  # Update only matching items
+            "$set": {"carts.$[].items.$[item].notes": new_note}  # Update notes for matching items
         },
-        array_filters=[
-            {"cart.items.item_id": item_id},  # Matches carts containing the item
-            {"item.item_id": item_id}  # Matches specific item within the cart
-        ]
+        array_filters=[{"item.item_id": item_id}]  # Match items with the given item_id
     )
 
     if result.modified_count == 0:
         return {"message": "No items were updated. Item not found or no changes made."}
 
-    return {"message": f"Successfully updated {result.modified_count} item(s) across carts."}
+    # Step 2: Retrieve the updated item from any cart
+    updated_item_data = await cart_collection.find_one(
+        {"email": email, "carts.items.item_id": item_id},
+        {"carts.items.$": 1}  # Retrieve only the first occurrence
+    )
+
+    if not updated_item_data or "carts" not in updated_item_data or not updated_item_data["carts"]:
+        return {"message": "Item was updated but not found after update."}
+
+    # Extract the updated item details
+    updated_item = next(
+        (i for c in updated_item_data["carts"] for i in c["items"] if i["item_id"] == item_id),
+        None
+    )
+
+    return updated_item if updated_item else {"message": "Item successfully updated but not found."}
+
 
 #DELETE
 async def delete_item(email: str, cart_id: str, item_id: str):
@@ -310,6 +322,7 @@ async def modify_existing_item_across_carts(email: str, item_id: str, selected_c
     - Ensures the item is **added** to selected carts if not already there.
     - Ensures the item is **removed** from deselected carts.
     - Updates the `selected_cart_ids` attribute correctly in all carts.
+    - Returns the updated item.
     """
 
     # Step 1: Retrieve all carts for this user
@@ -338,9 +351,6 @@ async def modify_existing_item_across_carts(email: str, item_id: str, selected_c
     # Step 3: Identify which carts need removal and addition
     remove_from_cart_ids = list(current_cart_ids - set(selected_cart_ids))  # Carts where item needs to be removed
     add_to_cart_ids = list(set(selected_cart_ids) - current_cart_ids)  # Carts where item needs to be added
-
-    print("remove carts: ", remove_from_cart_ids)
-    print("add carts: ", add_to_cart_ids)
 
     # Step 4: Remove the item from deselected carts
     if remove_from_cart_ids:
@@ -376,4 +386,18 @@ async def modify_existing_item_across_carts(email: str, item_id: str, selected_c
         array_filters=[{"item.item_id": item_id}]
     )
 
-    return {"message": "Item successfully moved across selected carts."}
+    # Step 7: Retrieve the updated item from any cart
+    updated_item_data = await cart_collection.find_one(
+        {"email": email, "carts.items.item_id": item_id},
+        {"carts.items.$": 1}
+    )
+
+    if not updated_item_data or "carts" not in updated_item_data or not updated_item_data["carts"]:
+        return {"message": "Item was moved but not found after update."}
+
+    updated_item = next(
+        (i for c in updated_item_data["carts"] for i in c["items"] if i["item_id"] == item_id),
+        None
+    )
+
+    return updated_item if updated_item else {"message": "Item successfully moved but not found."}

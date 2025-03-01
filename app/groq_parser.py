@@ -1,8 +1,7 @@
 import json
 from groq import Groq
+from config import GROQ_API_KEY
 
-# Groq API key
-GROQ_API_KEY = "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"
 client = Groq(api_key=GROQ_API_KEY)
 
 def parse_inner_text_with_groq(input_text: str):

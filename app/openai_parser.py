@@ -1,8 +1,7 @@
 import json
 import openai
+from config import OPENAI_API_KEY
 
-# OpenAI API key
-OPENAI_API_KEY = "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"
 openai.api_key = OPENAI_API_KEY
 
 def parse_inner_text_with_openai(input_text: str):
