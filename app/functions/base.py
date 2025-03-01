@@ -43,7 +43,7 @@ class EditNoteRequest(BaseModel):
 # Request body for adding a new item
 class AddNewItemRequest(BaseModel):
     name: str
-    price: float
+    price: str
     image: Optional[HttpUrl]  # Optional URL for the product image
     url: Optional[HttpUrl]    # Optional URL for the product
     notes: Optional[str]      # Optional notes about the item
