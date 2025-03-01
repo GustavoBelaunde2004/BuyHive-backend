@@ -3,7 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.openai_parser import parse_images_with_openai,parse_inner_text_with_openai
 from app.routes import router as cart_router
 from pydantic import BaseModel
-from typing import List
+import torch
+import open_clip
+from PIL import Image
+import requests
+from io import BytesIO
 
 app = FastAPI()
 
@@ -19,6 +23,24 @@ app.add_middleware(
 class ImageRequest(BaseModel):
     page_url: str
     image_urls: str
+
+# Default image if CLIP verification fails
+DEFAULT_IMAGE_URL = "https://example.com/default.jpg"
+
+class ProductVerificationRequest(BaseModel):
+    product_name: str
+    price: str
+    image_url: str
+
+# Determine the device to run the model on
+device = "cuda" if torch.cuda.is_available() else "cpu"
+# Load the model and preprocessing transforms
+model, preprocess_train, preprocess_val = open_clip.create_model_and_transforms(
+    'ViT-B-32', pretrained='openai'
+)
+# Move the model to the appropriate device
+model.to(device)
+tokenizer = open_clip.get_tokenizer('ViT-B-32')
 
 # Register routes
 app.include_router(cart_router)
@@ -88,33 +110,56 @@ def extract_product_name_from_url(url: str) -> str:
 
     return product_name if product_name else "Unknown Product"
 
-def filter_images(image_urls: list, product_name: str) -> list:
-    """Filters out irrelevant images while keeping relevant ones for any shopping website."""
-    filtered_urls = []
-    product_name_lower = product_name.lower()
+@app.post("/verify-image")
+async def verify_product(payload: ProductVerificationRequest):
+    """Verify if the extracted image matches the product name before storing the item."""
+    try:
+        if not payload.product_name or not payload.image_url.strip():
+            raise HTTPException(status_code=400, detail="Missing product name or image URL.")
 
-    for url in image_urls:
-        url_lower = url.lower()
+        print(f"Verifying Product: {payload.product_name} | Price: {payload.price} | Image: {payload.image_url}")
 
-        # Exclude bad keywords
-        if any(bad_word in url_lower for bad_word in ["thumbnail", "icon", "logo", "banner", "ads", "promo"]):
-            continue
+        # Run CLIP verification
+        is_valid_image = verify_image_with_clip(payload.image_url, payload.product_name)
 
-        # Exclude SVGs (usually UI elements, not real product images)
-        if url_lower.endswith(".svg"):
-            continue
+        # Return the original image if valid, otherwise return the default image
+        final_image_url = payload.image_url if is_valid_image else DEFAULT_IMAGE_URL
 
-        # Keep URLs that contain the product name (best indicator)
-        if product_name_lower in url_lower:
-            filtered_urls.insert(0, url)
+        return {
+            "product_name": payload.product_name,
+            "price": payload.price,
+            "verified_image_url": final_image_url
+        }
 
-        # Prioritize URLs that include common product image markers
-        elif any(keyword in url_lower for keyword in ["product", "main", "large", "featured", "media"]):
-            filtered_urls.append(url)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
-        # Only keep URLs with valid image extensions
-        #elif url_lower.endswith((".jpeg", ".jpg", ".png")):
-        #    filtered_urls.append(url)
-        print(filtered_urls)
+def verify_image_with_clip(image_url: str, product_name: str) -> bool:
+    try:
+        # Tokenize the product name
+        text_tokens = tokenizer([product_name])
 
-    return filtered_urls
+        # Download and preprocess the image
+        response = requests.get(image_url)
+        image = Image.open(BytesIO(response.content)).convert("RGB")
+        image_tensor = preprocess_val(image).unsqueeze(0).to(device)
+
+        # Encode the image and text
+        with torch.no_grad():
+            image_features = model.encode_image(image_tensor)
+            text_features = model.encode_text(text_tokens)
+
+        # Normalize the features
+        image_features /= image_features.norm(dim=-1, keepdim=True)
+        text_features /= text_features.norm(dim=-1, keepdim=True)
+
+        # Compute the cosine similarity
+        similarity = (image_features @ text_features.T).item()
+
+        # Define a threshold for similarity
+        threshold = 0.2
+        return similarity >= threshold
+
+    except Exception as e:
+        print(f"Error verifying image with CLIP: {e}")
+        return False

@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import uuid4
-from .database import cart_collection
+from .models.database import cart_collection
 import yagmail
 from config import GMAIL_PASSWORD, GMAIL_USER
 
