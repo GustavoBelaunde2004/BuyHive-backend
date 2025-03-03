@@ -1,2 +1,46 @@
 # Ignore environment variables file
 .env
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment (venv)
+venv/
+.env
+.env.local
+.env.*  # Ignore all environment files
+*.pem   # Private keys (NEVER COMMIT SECRETS!)
+
+# Dependency directories
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Logs and databases
+logs/
+*.log
+*.sqlite3
+*.db
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# FastAPI & Uvicorn auto-generated files
+instance/
+*.pid
+
+# macOS & Windows system files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node.js (if frontend is inside the same repo)
+node_modules/
+package-lock.json
+yarn.lock
