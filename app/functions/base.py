@@ -1,5 +1,3 @@
-from datetime import datetime
-from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 
@@ -35,10 +33,8 @@ class Item(BaseModel):
 class ModifyCartRequest(BaseModel):
     items: List[Item]
 
-
 class EditNoteRequest(BaseModel):
     new_note: str
-
 
 # Request body for adding a new item
 class AddNewItemRequest(BaseModel):
@@ -53,3 +49,7 @@ class AddNewItemRequest(BaseModel):
 class ModifyItemAcrossCartsRequest(BaseModel):
     add_to_cart_ids: List[str]
     remove_from_cart_ids: List[str]
+
+class ShareCartRequest(BaseModel):
+    recipient_email: str
+    cart_id: str

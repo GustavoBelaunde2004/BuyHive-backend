@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from app.functions.user import add_user_by_email,send_email_gmail
 from app.functions.cart import get_carts
+from app.functions.base import ShareCartRequest
 
 router = APIRouter()
 
@@ -23,9 +24,13 @@ async def add_user(payload: dict):
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.post("/carts/{email}/share")
-async def share_cart(email: str, cart_id: str, recipient_email: str):
+async def share_cart(email: str, payload: ShareCartRequest):
     """Share a cart by sending its details via email."""
     try:
+        # Extract data from request body
+        recipient_email = payload.recipient_email
+        cart_id = payload.cart_id
+
         # Retrieve the user's carts
         user_carts = await get_carts(email)
         cart_to_share = next((cart for cart in user_carts if cart["cart_id"] == cart_id), None)
