@@ -239,3 +239,25 @@ async def modify_existing_item_across_carts(email: str, item_id: str, selected_c
     )
 
     return updated_item if updated_item else {"message": "Item successfully moved but not found."}
+
+#Nuclear delete
+async def nuke(email: str, item_id: str):
+    """
+    Deletes an item from all carts for a given user.
+    """
+    # Step 1: Remove the item from all carts
+    result = await cart_collection.update_many(
+        {
+            "email": email,
+            "carts.items.item_id": item_id
+        },
+        {
+            "$pull": {"carts.$[].items": {"item_id": item_id}},
+            "$inc": {"carts.$[].item_count": -1}  # Decrement the item count in affected carts
+        }
+    )
+
+    if result.modified_count == 0:
+        return {"message": "Item not found in any cart!"}
+
+    return {"message": f"Item successfully deleted from {result.modified_count} carts."}

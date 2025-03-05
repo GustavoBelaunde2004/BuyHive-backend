@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.functions.item import add_item_to_cart,update_item_note,delete_item,retrieve_cart_items,add_new_item_across_carts,modify_existing_item_across_carts
+from app.functions.item import add_item_to_cart,update_item_note,delete_item,retrieve_cart_items,add_new_item_across_carts,modify_existing_item_across_carts,nuke
 from app.functions.base import Item,EditNoteRequest,AddNewItemRequest
 
 router = APIRouter()
@@ -86,6 +86,16 @@ async def move_item(email: str, item_id: str, payload: dict):
     try:
         selected_cart_ids = payload.get("selected_cart_ids", [])
         response = await modify_existing_item_across_carts(email, item_id, selected_cart_ids)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+#DELETE ALL ITEM INSTANCES
+@router.delete("/carts/{email}/items/{item_id}/nuke")
+async def remove_item_from_all(email: str, item_id: str):
+    """Delete an item from all carts for a user."""
+    try:
+        response = await nuke(email, item_id)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
