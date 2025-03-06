@@ -116,6 +116,7 @@ async def add_new_item_across_carts(email: str, item_details: dict, selected_car
     """
     Add a new item with a unique item_id across selected carts.
     Prevents adding duplicate items (same URL) that already exist in any of the user's carts.
+    Returns the details of the newly added item.
     """
 
     # Step 1: Check if the item (by URL) already exists in any of the user's carts
@@ -125,7 +126,6 @@ async def add_new_item_across_carts(email: str, item_details: dict, selected_car
     )
 
     if existing_item and "carts" in existing_item:
-        # Find the cart where the item already exists
         existing_cart = next(
             (cart for cart in existing_item["carts"] if any(i["url"] == item_details["url"] for i in cart["items"])),
             None
@@ -133,12 +133,14 @@ async def add_new_item_across_carts(email: str, item_details: dict, selected_car
 
         if existing_cart:
             return {
-                "message": f"Item already exists in '{existing_cart['cart_name']}'. Move it instead."
+                "message": f"Item already exists in '{existing_cart['cart_name']}'. Move it instead.",
+                "existing_item": next(i for i in existing_cart["items"] if i["url"] == item_details["url"])
             }
 
     # Step 2: Generate a new unique item ID
     item_details["item_id"] = str(uuid4())  
     item_details["added_at"] = datetime.utcnow().isoformat()
+    item_details["selected_cart_ids"] = selected_cart_ids  # Store selected carts in the item itself
 
     # Step 3: Add the item to each selected cart
     for cart_id in selected_cart_ids:
@@ -151,7 +153,11 @@ async def add_new_item_across_carts(email: str, item_details: dict, selected_car
             }
         )
 
-    return {"message": "New item added successfully across selected carts."}
+    # Step 4: Return the newly added item details
+    return {
+        "message": "New item added successfully across selected carts.",
+        "item": item_details
+    }
 
 # MODIFY EXISTING ITEM ACROSS CARTS
 async def modify_existing_item_across_carts(email: str, item_id: str, selected_cart_ids: list):
