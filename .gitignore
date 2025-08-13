@@ -44,3 +44,9 @@ Thumbs.db
 node_modules/
 package-lock.json
 yarn.lock
+.venv/
+ml_training/**/checkpoint-*
+*.pt
+*.safetensors
+.venv/
+ml_training/url/bert_models/bert_model_2/
