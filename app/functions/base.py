@@ -53,3 +53,7 @@ class ModifyItemAcrossCartsRequest(BaseModel):
 class ShareCartRequest(BaseModel):
     recipient_email: str
     cart_id: str
+
+# Request model for incoming URLs
+class URLRequest(BaseModel):
+    url: str

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request
-from app.functions.base import ImageRequest, ProductVerificationRequest
+from app.functions.base import ImageRequest, ProductVerificationRequest, URLRequest
 from app.services.openai_parser import parse_images_with_openai,parse_inner_text_with_openai
 from app.services.clip_verifier import verify_image_with_clip
+from app.services.bert_verifier import predict_product_page
 from app.utils.utils import extract_product_name_from_url
 
 router = APIRouter()
@@ -82,3 +83,10 @@ async def extract_cart_info(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     
+@router.post("/classify-url")
+async def classify_url(request: URLRequest):
+    """
+    Receives a URL, runs BERT classification, and returns whether it is a product page (1) or not (0).
+    """
+    prediction = predict_product_page(request.url)
+    return {"url": request.url, "is_product_page": bool(prediction)}
