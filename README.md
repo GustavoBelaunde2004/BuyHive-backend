@@ -1,5 +1,7 @@
 # BuyHive-backend  🐝
 
+[Check BuyHive's frontend here!](https://github.com/GustavoBelaunde2004/buy-hive)
+
 ## Overview
 
 Extension-backend is a FastAPI-based backend for an e-commerce browser extension. It provides APIs for cart management, item handling, user management, product extraction, and image verification. The backend leverages AI models (OpenAI, CLIP, BERT) to analyze product images and classify URLs, supporting advanced product extraction and verification from various e-commerce sites.
