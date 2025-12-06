@@ -1,8 +1,8 @@
 import yagmail
-from config import GMAIL_PASSWORD, GMAIL_USER
+from app.config.settings import settings
 from .database import cart_collection
 
-yag = yagmail.SMTP(GMAIL_USER, GMAIL_PASSWORD)
+yag = yagmail.SMTP(settings.GMAIL_USER, settings.GMAIL_PASSWORD)
 
 def send_email_gmail(recipient_email, cart_name, cart_items):
     """Send a professional email with optimized spacing (no extra <br> tags)."""

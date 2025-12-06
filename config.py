@@ -1,19 +1,15 @@
-from dotenv import load_dotenv
-import os
+"""
+Legacy config file - kept for backward compatibility.
+All new code should use app.config.settings instead.
+"""
+from app.config.settings import settings
 
-# Load .env file
-load_dotenv()
-
-# Access variables
-MONGO_URL = os.getenv("MONGO_URL")
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-GMAIL_USER = os.getenv("GMAIL_USER")
-GMAIL_PASSWORD = os.getenv("GMAIL_PASSWORD")
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-GOOGLE_SEARCH_API = os.getenv("GOOGLE_SEARCH_API")
-CSE_ID = os.getenv("CSE_ID")
+# Export settings for backward compatibility
+MONGO_URL = settings.MONGO_URL
+GROQ_API_KEY = settings.GROQ_API_KEY
+GMAIL_USER = settings.GMAIL_USER
+GMAIL_PASSWORD = settings.GMAIL_PASSWORD
+OPENAI_API_KEY = settings.OPENAI_API_KEY
+GOOGLE_SEARCH_API = settings.GOOGLE_SEARCH_API
+CSE_ID = settings.CSE_ID
 

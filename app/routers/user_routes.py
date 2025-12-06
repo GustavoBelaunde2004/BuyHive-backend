@@ -1,30 +1,19 @@
-from fastapi import APIRouter, HTTPException
-from app.functions.user import add_user_by_email,send_email_gmail
+from fastapi import APIRouter, HTTPException, Depends
+from app.functions.user import send_email_gmail
 from app.functions.cart import get_carts
 from app.functions.base import ShareCartRequest
+from app.auth.dependencies import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 
-@router.post("/users/add")
-async def add_user(payload: dict):
-    """
-    Add a new user to the database or update their info.
-    Expects a JSON payload with 'email' (required) and optional 'name'.
-    """
-    email = payload.get("email")
-    name = payload.get("name", "Unknown")
+# Note: /users/add endpoint removed - users are now created via OAuth
 
-    if not email:
-        raise HTTPException(status_code=400, detail="Email is required")
-
-    try:
-        response = await add_user_by_email(email, name)
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@router.post("/carts/{email}/share")
-async def share_cart(email: str, payload: ShareCartRequest):
+@router.post("/carts/share")
+async def share_cart(
+    payload: ShareCartRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Share a cart by sending its details via email."""
     try:
         # Extract data from request body
@@ -32,7 +21,7 @@ async def share_cart(email: str, payload: ShareCartRequest):
         cart_id = payload.cart_id
 
         # Retrieve the user's carts
-        user_carts = await get_carts(email)
+        user_carts = await get_carts(current_user.email)
         cart_to_share = next((cart for cart in user_carts if cart["cart_id"] == cart_id), None)
 
         if not cart_to_share:
@@ -41,7 +30,7 @@ async def share_cart(email: str, payload: ShareCartRequest):
         cart_name = cart_to_share["cart_name"]
         cart_items = cart_to_share["items"]
 
-        # Send email using Gmail SMTP
+        # Send email using Gmail SMTP (will be migrated to AWS SES in Phase 3)
         result = send_email_gmail(recipient_email, cart_name, cart_items)
         return result
 

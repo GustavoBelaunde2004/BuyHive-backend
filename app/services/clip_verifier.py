@@ -7,12 +7,14 @@ from io import BytesIO
 # Determine the device to run the model on
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # Load the model and preprocessing transforms
+# Use ViT-B-32-quickgelu variant to match OpenAI pretrained model (fixes QuickGELU warning)
 model, preprocess_train, preprocess_val = open_clip.create_model_and_transforms(
-    'ViT-B-32', pretrained='openai'
+    'ViT-B-32-quickgelu', 
+    pretrained='openai'
 )
 # Move the model to the appropriate device
 model.to(device)
-tokenizer = open_clip.get_tokenizer('ViT-B-32')
+tokenizer = open_clip.get_tokenizer('ViT-B-32-quickgelu')
 
 def verify_image_with_clip(image_url: str, product_name: str) -> bool:
     try:

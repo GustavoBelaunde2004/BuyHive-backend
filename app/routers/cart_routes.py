@@ -1,44 +1,56 @@
-from fastapi import APIRouter, HTTPException
-from app.functions.base import AddCartRequest,EditCartNameRequest
-from app.functions.cart import save_cart, get_carts, delete_cart,update_cart_name
+from fastapi import APIRouter, HTTPException, Depends
+from app.functions.base import AddCartRequest, EditCartNameRequest
+from app.functions.cart import save_cart, get_carts, delete_cart, update_cart_name
+from app.auth.dependencies import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 
-@router.post("/carts/{email}")
-async def add_cart(email: str, payload: AddCartRequest):
+@router.post("")
+async def add_cart(
+    payload: AddCartRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Add a new cart for a user."""
     try:
-        response = await save_cart(email, payload.cart_name)
+        response = await save_cart(current_user.email, payload.cart_name)
         return response
     except Exception as e:  
         raise HTTPException(status_code=500, detail=str(e))
 
 # EDIT CART NAME ROUTE
-@router.put("/carts/{email}/{cart_id}/edit-name")
-async def edit_cart_name(email: str, cart_id: str, payload: EditCartNameRequest):
+@router.put("/{cart_id}/edit-name")
+async def edit_cart_name(
+    cart_id: str,
+    payload: EditCartNameRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Edit the name of a specific cart."""
     try:
-        response = await update_cart_name(email, cart_id, payload.new_name)
+        response = await update_cart_name(current_user.email, cart_id, payload.new_name)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # RETRIEVE CART NAMES
-@router.get("/carts/{email}")
-async def retrieve_carts(email: str):
+@router.get("")
+async def retrieve_carts(current_user: User = Depends(get_current_user)):
     """Get all carts for a user."""
     try:
-        carts = await get_carts(email)
+        carts = await get_carts(current_user.email)
         return {"carts": carts}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # DELETE
-@router.delete("/carts/{email}/{cart_id}")
-async def remove_cart(email: str, cart_id: str):
+@router.delete("/{cart_id}")
+async def remove_cart(
+    cart_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """Delete a specific cart for a user."""
     try:
-        response = await delete_cart(email, cart_id)
+        response = await delete_cart(current_user.email, cart_id)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

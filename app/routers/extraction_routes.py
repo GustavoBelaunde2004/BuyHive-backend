@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from app.functions.base import ImageRequest, ProductVerificationRequest, URLRequest
-from app.services.openai_parser import parse_images_with_openai,parse_inner_text_with_openai
+from app.services.openai_parser import parse_images_with_openai, parse_inner_text_with_openai
 from app.services.clip_verifier import verify_image_with_clip
 from app.services.bert_verifier import predict_product_page
 from app.utils.utils import extract_product_name_from_url
+from app.auth.dependencies import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 
@@ -11,19 +13,23 @@ router = APIRouter()
 DEFAULT_IMAGE_URL = "https://example.com/default.jpg"
 
 @router.post("/verify-image")
-async def verify_product(payload: ProductVerificationRequest):
+async def verify_product(
+    payload: ProductVerificationRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Verify if the extracted image matches the product name before storing the item."""
     try:
-        if not payload.product_name or not payload.image_url.strip():
+        if not payload.product_name or not str(payload.image_url).strip():
             raise HTTPException(status_code=400, detail="Missing product name or image URL.")
 
-        print(f"Verifying Product: {payload.product_name} | Price: {payload.price} | Image: {payload.image_url}")
+        image_url_str = str(payload.image_url)
+        print(f"Verifying Product: {payload.product_name} | Price: {payload.price} | Image: {image_url_str}")
 
         # Run CLIP verification
-        is_valid_image = verify_image_with_clip(payload.image_url, payload.product_name)
+        is_valid_image = verify_image_with_clip(image_url_str, payload.product_name)
 
         # Return the original image if valid, otherwise return the default image
-        final_image_url = payload.image_url if is_valid_image else DEFAULT_IMAGE_URL
+        final_image_url = image_url_str if is_valid_image else DEFAULT_IMAGE_URL
 
         return {
             "product_name": payload.product_name,
@@ -35,14 +41,18 @@ async def verify_product(payload: ProductVerificationRequest):
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     
 @router.post("/analyze-images")
-async def analyze_images(payload: ImageRequest):
+async def analyze_images(
+    payload: ImageRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Endpoint to analyze and determine the best product image."""
     try:
         if not payload.page_url or not payload.image_urls.strip():
             raise HTTPException(status_code=400, detail="Missing page_url or image_urls.")
 
         # Extract product name from page URL
-        product_name = extract_product_name_from_url(payload.page_url)
+        page_url_str = str(payload.page_url)
+        product_name = extract_product_name_from_url(page_url_str)
 
         print(product_name)
 
@@ -56,7 +66,7 @@ async def analyze_images(payload: ImageRequest):
         #filtered_image_urls = filter_images(product_name=product_name,image_urls=image_urls)
 
         # Call OpenAI function
-        result = parse_images_with_openai(payload.page_url, product_name, image_urls)
+        result = parse_images_with_openai(page_url_str, product_name, image_urls)
         
         return result
 
@@ -64,7 +74,10 @@ async def analyze_images(payload: ImageRequest):
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 @router.post("/extract")
-async def extract_cart_info(request: Request):
+async def extract_cart_info(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
     try:
         # Receive plain text input
         input_text = await request.body()
@@ -84,9 +97,19 @@ async def extract_cart_info(request: Request):
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     
 @router.post("/classify-url")
-async def classify_url(request: URLRequest):
+async def classify_url(
+    request: URLRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Receives a URL, runs BERT classification, and returns whether it is a product page (1) or not (0).
     """
-    prediction = predict_product_page(request.url)
-    return {"url": request.url, "is_product_page": bool(prediction)}
+    try:
+        url_str = str(request.url)
+        prediction = predict_product_page(url_str)
+        return {"url": url_str, "is_product_page": bool(prediction)}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"BERT model not available: {str(e)}. Please configure BERT_MODEL_PATH in your .env file."
+        )

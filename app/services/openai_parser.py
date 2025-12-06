@@ -1,8 +1,8 @@
 import json
 import openai
-from config import OPENAI_API_KEY
+from app.config.settings import settings
 
-openai.api_key = OPENAI_API_KEY
+openai.api_key = settings.OPENAI_API_KEY
 
 def parse_inner_text_with_openai(input_text: str):
     """

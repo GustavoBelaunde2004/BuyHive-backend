@@ -1,11 +1,17 @@
-from fastapi import APIRouter, HTTPException
-from app.functions.item import add_item_to_cart,update_item_note,delete_item,retrieve_cart_items,add_new_item_across_carts,modify_existing_item_across_carts,nuke
-from app.functions.base import Item,EditNoteRequest,AddNewItemRequest
+from fastapi import APIRouter, HTTPException, Depends
+from app.functions.item import add_item_to_cart, update_item_note, delete_item, retrieve_cart_items, add_new_item_across_carts, modify_existing_item_across_carts, nuke
+from app.functions.base import Item, EditNoteRequest, AddNewItemRequest
+from app.auth.dependencies import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 
-@router.post("/carts/{email}/{cart_id}/items")
-async def add_item(email: str, cart_id: str, payload: Item):
+@router.post("/{cart_id}/items")
+async def add_item(
+    cart_id: str,
+    payload: Item,
+    current_user: User = Depends(get_current_user)
+):
     """Add an item to a specific cart."""
     try:
         item_as_dict = payload.model_dump()
@@ -15,87 +21,108 @@ async def add_item(email: str, cart_id: str, payload: Item):
             item_as_dict["url"] = str(item_as_dict["url"])
 
         # Pass the converted dictionary to the model function
-        response = await add_item_to_cart(email, cart_id, item_as_dict)
+        response = await add_item_to_cart(current_user.email, cart_id, item_as_dict)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
 #GET ITEMS
-@router.get("/carts/{email}/{cart_id}/items")
-async def get_cart_items(email: str, cart_id: str):
+@router.get("/{cart_id}/items")
+async def get_cart_items(
+    cart_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Retrieve all items from a specific cart.
     """
     try:
-        response = await retrieve_cart_items(email, cart_id)
+        response = await retrieve_cart_items(current_user.email, cart_id)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # EDIT ITEMS NOTES
-@router.put("/carts/{email}/items/{item_id}/edit-note")
-async def edit_item_note(email: str, item_id: str, payload: EditNoteRequest):
+@router.put("/items/{item_id}/edit-note")
+async def edit_item_note(
+    item_id: str,
+    payload: EditNoteRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Edit the note for all occurrences of the item across all carts.
     """
     try:
-        response = await update_item_note(email, item_id, payload.new_note)
+        response = await update_item_note(current_user.email, item_id, payload.new_note)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # DELETE ITEM
-@router.delete("/carts/{email}/{cart_id}/items/{item_id}")
-async def remove_item(email: str, cart_id: str, item_id: str):
+@router.delete("/{cart_id}/items/{item_id}")
+async def remove_item(
+    cart_id: str,
+    item_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Delete a specific item from a cart and update its selected_cart_ids.
     If the item is in other carts, remove the cart_id from selected_cart_ids.
     If the item is only in one cart, fully delete it.
     """
     try:
-        response = await delete_item(email, cart_id, item_id)
+        response = await delete_item(current_user.email, cart_id, item_id)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # ROUTE: Add new item across selected carts
-@router.post("/carts/{email}/items/add-new")
-async def add_new_item(email: str, payload: AddNewItemRequest):
+@router.post("/items/add-new")
+async def add_new_item(
+    payload: AddNewItemRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Add a new item across selected carts with a unique item_id.
     """
     try:
         # Convert Pydantic object to a plain dictionary with URLs converted to strings
-        item_details = payload.dict()
+        item_details = payload.model_dump()
         if item_details.get("image"):
             item_details["image"] = str(item_details["image"])
         if item_details.get("url"):
             item_details["url"] = str(item_details["url"])
 
-        response = await add_new_item_across_carts(email, item_details, payload.selected_cart_ids)
+        response = await add_new_item_across_carts(current_user.email, item_details, payload.selected_cart_ids)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # ROUTE: Modify existing item across selected carts
-@router.put("/carts/{email}/items/{item_id}/move")
-async def move_item(email: str, item_id: str, payload: dict):
+@router.put("/items/{item_id}/move")
+async def move_item(
+    item_id: str,
+    payload: dict,
+    current_user: User = Depends(get_current_user)
+):
     """
     Move an existing item across selected carts.
     """
     try:
         selected_cart_ids = payload.get("selected_cart_ids", [])
-        response = await modify_existing_item_across_carts(email, item_id, selected_cart_ids)
+        response = await modify_existing_item_across_carts(current_user.email, item_id, selected_cart_ids)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 #DELETE ALL ITEM INSTANCES
-@router.delete("/carts/{email}/items/{item_id}/nuke")
-async def remove_item_from_all(email: str, item_id: str):
+@router.delete("/items/{item_id}/nuke")
+async def remove_item_from_all(
+    item_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """Delete an item from all carts for a user."""
     try:
-        response = await nuke(email, item_id)
+        response = await nuke(current_user.email, item_id)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

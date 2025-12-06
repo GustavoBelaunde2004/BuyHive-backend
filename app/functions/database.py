@@ -1,7 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
-from config import MONGO_URL
+from app.config.settings import settings
 
 # Initialize MongoDB client
-client = AsyncIOMotorClient(MONGO_URL)
+client = AsyncIOMotorClient(settings.MONGO_URL)
 db = client["buyHive"]
 cart_collection = db["cartItems"]
