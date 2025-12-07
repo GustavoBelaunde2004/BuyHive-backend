@@ -3,6 +3,7 @@ from app.functions.item import add_item_to_cart, update_item_note, delete_item, 
 from app.functions.base import Item, EditNoteRequest, AddNewItemRequest
 from app.auth.dependencies import get_current_user
 from app.models.user import User
+from app.utils.rate_limiter import rate_limit
 
 router = APIRouter()
 

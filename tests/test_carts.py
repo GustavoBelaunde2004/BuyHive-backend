@@ -104,4 +104,38 @@ class TestCartEndpoints:
         response = authenticated_client.delete("/carts/nonexistent_cart_id")
         # Should either return 404 or 200 with error message
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
+    
+    def test_duplicate_cart_name(self, authenticated_client, sample_cart_data):
+        """Test creating multiple carts with the same name."""
+        # Create first cart
+        response1 = authenticated_client.post("/carts", json=sample_cart_data)
+        assert response1.status_code == status.HTTP_200_OK
+        cart_id1 = response1.json()["cart_id"]
+        
+        # Create second cart with same name
+        response2 = authenticated_client.post("/carts", json=sample_cart_data)
+        assert response2.status_code == status.HTTP_200_OK
+        response2_data = response2.json()
+        assert "cart_id" in response2_data, f"Response should contain cart_id: {response2_data}"
+        cart_id2 = response2_data["cart_id"]
+        
+        # Both should exist (duplicate names are allowed)
+        get_response = authenticated_client.get("/carts")
+        carts = get_response.json()["carts"]
+        assert len([c for c in carts if c.get("cart_id") in [cart_id1, cart_id2]]) == 2
+        
+        # Cleanup
+        authenticated_client.delete(f"/carts/{cart_id1}")
+        authenticated_client.delete(f"/carts/{cart_id2}")
+    
+    def test_very_long_cart_name(self, authenticated_client):
+        """Test creating cart with very long name."""
+        long_name = "A" * 1000  # Very long name
+        response = authenticated_client.post("/carts", json={"cart_name": long_name})
+        # Should either succeed (if no limit) or fail validation
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_422_UNPROCESSABLE_ENTITY]
+        
+        if response.status_code == status.HTTP_200_OK:
+            cart_id = response.json()["cart_id"]
+            authenticated_client.delete(f"/carts/{cart_id}")
 

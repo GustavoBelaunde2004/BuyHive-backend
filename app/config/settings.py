@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     # ML Models
     BERT_MODEL_PATH: str = ""
     
+    # CLIP Configuration
+    CLIP_THRESHOLD: float = 0.28  # Similarity threshold for image verification
+    ENABLE_VISION_FALLBACK: bool = True  # Use OpenAI Vision as fallback when CLIP fails
+    
+    # Rate Limiting
+    RATE_LIMIT_ENABLED: bool = True
+    
+    # Monitoring
+    SENTRY_DSN: str = ""
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

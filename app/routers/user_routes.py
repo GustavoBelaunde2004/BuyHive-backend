@@ -10,6 +10,7 @@ router = APIRouter()
 # Note: /users/add endpoint removed - users are now created via OAuth
 
 @router.post("/carts/share")
+# Route will be at /users/carts/share with prefix
 async def share_cart(
     payload: ShareCartRequest,
     current_user: User = Depends(get_current_user)
@@ -30,9 +31,17 @@ async def share_cart(
         cart_name = cart_to_share.cart_name
         cart_items = cart_to_share.items
 
-        # Send email using Gmail SMTP (will be migrated to AWS SES in Phase 3)
-        result = send_email_gmail(recipient_email, cart_name, cart_items)
+        # Send email using AWS SES (migrated from Gmail SMTP in Phase 3)
+        result = await send_email_gmail(recipient_email, cart_name, cart_items)
+        
+        # Check if email sending failed
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        
         return result
 
+    except HTTPException:
+        # Re-raise HTTPException (like 404) as-is
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

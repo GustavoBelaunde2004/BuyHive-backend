@@ -23,6 +23,7 @@ class TestItemEndpoints:
         response = authenticated_client.get(f"/carts/{test_cart}/items")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
+        # Response is Cart model, has items field directly
         assert "items" in data
         assert isinstance(data["items"], list)
         assert len(data["items"]) == 0
@@ -38,9 +39,10 @@ class TestItemEndpoints:
         assert "item_id" in data
         assert "message" in data
         
-        # Verify item was added
+        # Verify item was added (response is Cart model)
         get_response = authenticated_client.get(f"/carts/{test_cart}/items")
-        items = get_response.json()["items"]
+        cart_data = get_response.json()
+        items = cart_data["items"]
         assert len(items) > 0
         assert any(item.get("name") == sample_item_data["name"] for item in items)
     
@@ -122,4 +124,103 @@ class TestItemEndpoints:
         item = next((i for i in items if i.get("item_id") == item_id), None)
         assert item is not None
         assert item.get("notes") == new_note
+    
+    def test_duplicate_items_same_cart(self, authenticated_client, test_cart, sample_item_data):
+        """Test adding duplicate items (same URL) to the same cart."""
+        # Add first item
+        response1 = authenticated_client.post(
+            f"/carts/{test_cart}/items",
+            json=sample_item_data
+        )
+        assert response1.status_code == status.HTTP_200_OK
+        
+        # Try to add same item again (same URL)
+        response2 = authenticated_client.post(
+            f"/carts/{test_cart}/items",
+            json=sample_item_data
+        )
+        # Should either succeed (allowing duplicates) or fail
+        assert response2.status_code in [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST]
+    
+    def test_same_item_url_different_carts(self, authenticated_client, sample_cart_data, sample_item_data):
+        """Test adding same item URL to different carts."""
+        # Create two carts
+        cart1_response = authenticated_client.post("/carts", json={**sample_cart_data, "cart_name": "Cart 1"})
+        cart1_id = cart1_response.json()["cart_id"]
+        
+        cart2_response = authenticated_client.post("/carts", json={**sample_cart_data, "cart_name": "Cart 2"})
+        cart2_id = cart2_response.json()["cart_id"]
+        
+        # Add same item to both carts
+        response1 = authenticated_client.post(
+            f"/carts/{cart1_id}/items",
+            json=sample_item_data
+        )
+        assert response1.status_code == status.HTTP_200_OK
+        
+        response2 = authenticated_client.post(
+            f"/carts/{cart2_id}/items",
+            json=sample_item_data
+        )
+        assert response2.status_code == status.HTTP_200_OK
+        
+        # Both should have the item
+        items1 = authenticated_client.get(f"/carts/{cart1_id}/items").json()["items"]
+        items2 = authenticated_client.get(f"/carts/{cart2_id}/items").json()["items"]
+        assert len(items1) > 0
+        assert len(items2) > 0
+        
+        # Cleanup
+        authenticated_client.delete(f"/carts/{cart1_id}")
+        authenticated_client.delete(f"/carts/{cart2_id}")
+    
+    def test_item_with_very_long_notes(self, authenticated_client, test_cart, sample_item_data):
+        """Test adding item with very long notes."""
+        long_notes = "A" * 10000  # Very long notes
+        item_data = {**sample_item_data, "notes": long_notes}
+        
+        response = authenticated_client.post(
+            f"/carts/{test_cart}/items",
+            json=item_data
+        )
+        # Should either succeed or fail validation
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_422_UNPROCESSABLE_ENTITY]
+    
+    def test_item_with_special_characters_in_name(self, authenticated_client, test_cart, sample_item_data):
+        """Test adding item with special characters in name."""
+        item_data = {
+            **sample_item_data,
+            "name": "Product with <special> & 'characters' \"quotes\""
+        }
+        
+        response = authenticated_client.post(
+            f"/carts/{test_cart}/items",
+            json=item_data
+        )
+        assert response.status_code == status.HTTP_200_OK
+        
+        # Verify item was added with sanitized name
+        items = authenticated_client.get(f"/carts/{test_cart}/items").json()["items"]
+        assert len(items) > 0
+    
+    def test_multiple_items_same_name_different_urls(self, authenticated_client, test_cart, sample_item_data):
+        """Test adding multiple items with same name but different URLs."""
+        item1 = {**sample_item_data, "url": "https://example.com/product1"}
+        item2 = {**sample_item_data, "url": "https://example.com/product2"}
+        
+        response1 = authenticated_client.post(
+            f"/carts/{test_cart}/items",
+            json=item1
+        )
+        assert response1.status_code == status.HTTP_200_OK
+        
+        response2 = authenticated_client.post(
+            f"/carts/{test_cart}/items",
+            json=item2
+        )
+        assert response2.status_code == status.HTTP_200_OK
+        
+        # Both items should be in the cart
+        items = authenticated_client.get(f"/carts/{test_cart}/items").json()["items"]
+        assert len(items) >= 2
 

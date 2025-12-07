@@ -1,12 +1,10 @@
-import yagmail
 from typing import List
 from app.config.settings import settings
 from .database import cart_collection
 from app.models.item import ItemInDB
+from app.services.email_service import send_email_ses
 
-yag = yagmail.SMTP(settings.GMAIL_USER, settings.GMAIL_PASSWORD)
-
-def send_email_gmail(recipient_email: str, cart_name: str, cart_items: List[ItemInDB]) -> dict:
+async def send_email_gmail(recipient_email: str, cart_name: str, cart_items: List[ItemInDB]) -> dict:
     """Send a professional email with optimized spacing (no extra <br> tags)."""
     subject = f"Your Shared Cart: {cart_name}"
 
@@ -77,11 +75,8 @@ def send_email_gmail(recipient_email: str, cart_name: str, cart_items: List[Item
     </html>
     """
 
-    try:
-        yag.send(to=recipient_email, subject=subject, contents=body_html)
-        return {"message": "Email sent successfully!"}
-    except Exception as e:
-        return {"error": str(e)}
+    # Use AWS SES instead of Gmail SMTP
+    return await send_email_ses(recipient_email, subject, body_html)
 
 
 # USER FUNCTIONS --------------------------------------------------------------------------------------------------------------

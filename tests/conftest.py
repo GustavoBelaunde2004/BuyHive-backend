@@ -421,3 +421,42 @@ def sample_item_data() -> dict:
         "notes": "Test notes"
     }
 
+
+# Mock fixtures for ML services and external dependencies
+@pytest.fixture
+def mock_clip_verifier():
+    """Mock CLIP image verification service."""
+    with patch('app.services.clip_verifier.verify_image_with_clip') as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_openai_parser():
+    """Mock OpenAI parser services."""
+    with patch('app.services.openai_parser.parse_images_with_openai') as mock_images, \
+         patch('app.services.openai_parser.parse_inner_text_with_openai') as mock_text:
+        yield {
+            'parse_images': mock_images,
+            'parse_text': mock_text
+        }
+
+
+@pytest.fixture
+def mock_bert_verifier():
+    """Mock BERT URL classification service."""
+    with patch('app.services.bert_verifier.predict_product_page') as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_email_service():
+    """Mock email sending service."""
+    with patch('app.functions.user.send_email_gmail') as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_extract_product_name():
+    """Mock product name extraction utility."""
+    with patch('app.utils.utils.extract_product_name_from_url') as mock:
+        yield mock

@@ -7,10 +7,6 @@ from app.models.cart import Cart
 # POST
 async def save_cart(email: str, cart_name: str) -> dict:
     """Add a new cart with a unique ID for a user and update the cart count."""
-    existing_cart = await cart_collection.find_one({"email": email, "carts.cart_name": cart_name})
-    if existing_cart:
-        return {"message": "Cart already exists!"}
-
     cart_id = str(uuid4())  # Generate unique cart_id
     result = await cart_collection.update_one(
         {"email": email},
