@@ -55,5 +55,5 @@ def health():
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(cart_router, prefix="/carts", tags=["Cart"])
 app.include_router(item_router, prefix="/carts", tags=["Item"])
-app.include_router(user_router, tags=["User"])
-app.include_router(extraction_router, tags=["Extraction Processing"])
+app.include_router(user_router, prefix="/users", tags=["User"])
+app.include_router(extraction_router, prefix="/extract", tags=["Extraction Processing"])

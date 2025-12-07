@@ -37,6 +37,8 @@ async def verify_product(
             "verified_image_url": final_image_url
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     
@@ -70,6 +72,8 @@ async def analyze_images(
         
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
@@ -91,6 +95,8 @@ async def extract_cart_info(
 
         return {"cart_items": extracted_data}
 
+    except HTTPException:
+        raise
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(ve)}")
     except Exception as e:
@@ -108,6 +114,8 @@ async def classify_url(
         url_str = str(request.url)
         prediction = predict_product_page(url_str)
         return {"url": url_str, "is_product_page": bool(prediction)}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=503,

@@ -10,6 +10,7 @@ router = APIRouter()
 # Note: /users/add endpoint removed - users are now created via OAuth
 
 @router.post("/carts/share")
+# Route will be at /users/carts/share with prefix
 async def share_cart(
     payload: ShareCartRequest,
     current_user: User = Depends(get_current_user)
@@ -34,5 +35,8 @@ async def share_cart(
         result = send_email_gmail(recipient_email, cart_name, cart_items)
         return result
 
+    except HTTPException:
+        # Re-raise HTTPException (like 404) as-is
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

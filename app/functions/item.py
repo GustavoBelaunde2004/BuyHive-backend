@@ -276,19 +276,35 @@ async def nuke(email: str, item_id: str) -> Dict[str, str]:
     """
     Deletes an item from all carts for a given user.
     """
-    # Step 1: Remove the item from all carts
-    result = await cart_collection.update_many(
-        {
-            "email": email,
-            "carts.items.item_id": item_id
-        },
-        {
-            "$pull": {"carts.$[].items": {"item_id": item_id}},
-            "$inc": {"carts.$[].item_count": -1}  # Decrement the item count in affected carts
-        }
+    # Use update_many to remove the item from all carts that contain it
+    # We need to update each cart individually since we need to decrement item_count per cart
+    user_data = await cart_collection.find_one(
+        {"email": email, "carts.items.item_id": item_id}
     )
-
-    if result.modified_count == 0:
+    
+    if not user_data or "carts" not in user_data:
         return {"message": "Item not found in any cart!"}
-
-    return {"message": f"Item successfully deleted from {result.modified_count} carts."}
+    
+    # Count how many carts will be affected
+    carts_with_item = [
+        cart for cart in user_data["carts"] 
+        if any(item.get("item_id") == item_id for item in cart.get("items", []))
+    ]
+    
+    if not carts_with_item:
+        return {"message": "Item not found in any cart!"}
+    
+    # Remove item from each cart
+    modified_count = 0
+    for cart in carts_with_item:
+        result = await cart_collection.update_one(
+            {"email": email, "carts.cart_id": cart["cart_id"]},
+            {
+                "$pull": {"carts.$.items": {"item_id": item_id}},
+                "$inc": {"carts.$.item_count": -1}
+            }
+        )
+        if result.modified_count > 0:
+            modified_count += 1
+    
+    return {"message": f"Item successfully deleted from {modified_count} cart(s)."}
