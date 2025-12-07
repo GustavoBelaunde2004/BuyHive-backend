@@ -38,6 +38,11 @@ async def get_cart_items(
     try:
         response = await retrieve_cart_items(current_user.email, cart_id)
         return response
+    except ValueError as e:
+        # Handle not found cases with 404
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -1,10 +1,12 @@
 import yagmail
+from typing import List
 from app.config.settings import settings
 from .database import cart_collection
+from app.models.item import ItemInDB
 
 yag = yagmail.SMTP(settings.GMAIL_USER, settings.GMAIL_PASSWORD)
 
-def send_email_gmail(recipient_email, cart_name, cart_items):
+def send_email_gmail(recipient_email: str, cart_name: str, cart_items: List[ItemInDB]) -> dict:
     """Send a professional email with optimized spacing (no extra <br> tags)."""
     subject = f"Your Shared Cart: {cart_name}"
 
@@ -34,19 +36,19 @@ def send_email_gmail(recipient_email, cart_name, cart_items):
     """
 
     # Product listing with notes added
-# Product listing with clickable images
+    # Product listing with clickable images
     items_html = "".join([
     f"""
     <div style="display: flex; align-items: center; padding: 10px 15px; border-bottom: 1px solid #ddd; margin: 0;">
-        <a href="{item['url']}" target="_blank" style="text-decoration: none;">
-            <img src="{item['image']}" alt="{item['name']}" style="width: 70px; height: 70px; border-radius: 8px; margin-right: 12px;">
+        <a href="{item.url or '#'}" target="_blank" style="text-decoration: none;">
+            <img src="{item.image or ''}" alt="{item.name}" style="width: 70px; height: 70px; border-radius: 8px; margin-right: 12px;">
         </a>
         <div>
             <h3 style="margin: 0; padding: 0; color: #333; font-size: 16px; line-height: 1.2; display: block;">
-                <a href="{item['url']}" target="_blank" style="text-decoration: none; color: inherit;">{item['name']}</a>
+                <a href="{item.url or '#'}" target="_blank" style="text-decoration: none; color: inherit;">{item.name}</a>
             </h3>
-            <p style="margin: 3px 0 0 0; padding: 0; font-size: 14px; color: #666; line-height: 1.2; display: block;">{item['price']}</p>
-            {"<p style='font-size: 13px; color: #888; font-style: italic; margin: 3px 0 0 0; padding: 0; line-height: 1.2; display: block;'>Note: " + item['notes'] + "</p>" if 'notes' in item and item['notes'] else ""}
+            <p style="margin: 3px 0 0 0; padding: 0; font-size: 14px; color: #666; line-height: 1.2; display: block;">{item.price}</p>
+            {"<p style='font-size: 13px; color: #888; font-style: italic; margin: 3px 0 0 0; padding: 0; line-height: 1.2; display: block;'>Note: " + item.notes + "</p>" if item.notes else ""}
         </div>
     </div>
     """ for item in cart_items
@@ -83,7 +85,7 @@ def send_email_gmail(recipient_email, cart_name, cart_items):
 
 
 # USER FUNCTIONS --------------------------------------------------------------------------------------------------------------
-async def add_user_by_email(email: str, name: str = "Unknown"):
+async def add_user_by_email(email: str, name: str = "Unknown") -> dict:
     """Add a new user to the database or ensure they already exist."""
     existing_user = await cart_collection.find_one({"email": email})
     if existing_user:

@@ -22,13 +22,13 @@ async def share_cart(
 
         # Retrieve the user's carts
         user_carts = await get_carts(current_user.email)
-        cart_to_share = next((cart for cart in user_carts if cart["cart_id"] == cart_id), None)
+        cart_to_share = next((cart for cart in user_carts if cart.cart_id == cart_id), None)
 
         if not cart_to_share:
             raise HTTPException(status_code=404, detail="Cart not found")
 
-        cart_name = cart_to_share["cart_name"]
-        cart_items = cart_to_share["items"]
+        cart_name = cart_to_share.cart_name
+        cart_items = cart_to_share.items
 
         # Send email using Gmail SMTP (will be migrated to AWS SES in Phase 3)
         result = send_email_gmail(recipient_email, cart_name, cart_items)

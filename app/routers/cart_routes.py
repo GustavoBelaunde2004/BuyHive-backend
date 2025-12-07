@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
+from typing import List
 from app.functions.base import AddCartRequest, EditCartNameRequest
 from app.functions.cart import save_cart, get_carts, delete_cart, update_cart_name
 from app.auth.dependencies import get_current_user
 from app.models.user import User
+from app.models.cart import Cart
 
 router = APIRouter()
 
@@ -34,11 +36,11 @@ async def edit_cart_name(
 
 # RETRIEVE CART NAMES
 @router.get("")
-async def retrieve_carts(current_user: User = Depends(get_current_user)):
+async def retrieve_carts(current_user: User = Depends(get_current_user)) -> dict:
     """Get all carts for a user."""
     try:
         carts = await get_carts(current_user.email)
-        return {"carts": carts}
+        return {"carts": carts}  # FastAPI will auto-serialize List[Cart] to JSON
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

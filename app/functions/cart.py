@@ -1,9 +1,11 @@
 from datetime import datetime
 from uuid import uuid4
+from typing import List
 from .database import cart_collection
+from app.models.cart import Cart
 
 # POST
-async def save_cart(email: str, cart_name: str):
+async def save_cart(email: str, cart_name: str) -> dict:
     """Add a new cart with a unique ID for a user and update the cart count."""
     existing_cart = await cart_collection.find_one({"email": email, "carts.cart_name": cart_name})
     if existing_cart:
@@ -35,7 +37,7 @@ async def save_cart(email: str, cart_name: str):
         return {"message": "No changes made."}
 
 # PUT
-async def update_cart_name(email: str, cart_id: str, new_name: str):
+async def update_cart_name(email: str, cart_id: str, new_name: str) -> dict:
     """Update the name of a specific cart."""
     result = await cart_collection.update_one(
         {"email": email, "carts.cart_id": cart_id},
@@ -47,13 +49,21 @@ async def update_cart_name(email: str, cart_id: str, new_name: str):
     return {"message": "Cart name updated successfully!"}
 
 # GET
-async def get_carts(email: str):
+async def get_carts(email: str) -> List[Cart]:
     """Retrieve all carts for a user."""
     user_data = await cart_collection.find_one({"email": email})
-    return user_data.get("carts", []) if user_data else []
+    if not user_data or "carts" not in user_data:
+        return []
+    
+    # Convert MongoDB documents to Cart models
+    carts = []
+    for cart_doc in user_data.get("carts", []):
+        carts.append(Cart.from_mongo(cart_doc))
+    
+    return carts
 
 # DELETE
-async def delete_cart(email: str, cart_id: str):
+async def delete_cart(email: str, cart_id: str) -> dict:
     """Delete a specific cart and update the cart count."""
     result = await cart_collection.update_one(
         {"email": email},

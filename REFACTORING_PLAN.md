@@ -56,6 +56,7 @@ This document outlines a comprehensive refactoring plan to transform BuyHive's b
 - [ ] 2.3 Update Deprecated APIs
 - [ ] 2.4 Code Cleanup
 - [ ] 2.5 Type Hints & Documentation
+- [ ] 2.6 Data Models - Production-Ready Structures
 
 ### Phase 3: Production Readiness
 - [ ] 3.1 ML Model Optimization
@@ -368,6 +369,58 @@ def parse_inner_text_with_openai(input_text: str):
 - [ ] Add docstrings to all public functions
 - [ ] Add API documentation improvements
 - [ ] Update README with new setup instructions
+
+### 2.6 Data Models - Production-Ready Structures (2-3 hours)
+
+#### Overview
+Create proper Pydantic models for all database entities (ItemInDB, Cart) to replace generic dictionaries. This ensures type safety, validation, and production-ready code structure. Follows existing pattern (User/UserInDB) and production FastAPI best practices.
+
+#### Architecture Decisions:
+- **Naming**: Use `ItemInDB` to match existing `UserInDB` convention
+- **Structure**: Two models (request schema in base.py, database model in models/)
+- **Conversion**: Utility methods on models (`from_mongo()`, `to_mongo_dict()`)
+- **Backward Compatibility**: Not needed (database will be reset)
+
+#### Tasks:
+- [ ] Create `ItemInDB` model with all database fields and MongoDB conversion methods
+- [ ] Create `Cart` model with proper ItemInDB list and MongoDB conversion methods
+- [ ] Update `User` model to use Cart models instead of `List[dict]`
+- [ ] Update all database functions to use proper models (cart.py, item.py)
+- [ ] Update user functions (email function)
+- [ ] Update route return types to use models
+
+#### Files to Create:
+```
+app/
+  models/
+    item.py       # ItemInDB model with MongoDB conversion methods
+    cart.py       # Cart model with MongoDB conversion methods
+```
+
+#### Files to Update:
+- `app/models/user.py` - Update carts type
+- `app/functions/cart.py` - Use Cart models
+- `app/functions/item.py` - Use ItemInDB models
+- `app/functions/user.py` - Update email function
+- `app/routers/cart_routes.py` - Update return types
+- `app/routers/item_routes.py` - Update return types
+
+#### Database Structure:
+
+**ItemInDB Model**:
+- item_id: str (UUID, required)
+- name: str, price: str
+- image: Optional[str], url: Optional[str]
+- notes: Optional[str]
+- added_at: str (ISO datetime, required)
+- selected_cart_ids: Optional[List[str]]
+
+**Cart Model**:
+- cart_id: str (UUID, required)
+- cart_name: str (required)
+- item_count: int (defaults to 0)
+- created_at: str (ISO datetime, required)
+- items: List[ItemInDB] (defaults to [])
 
 ---
 

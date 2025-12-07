@@ -1,6 +1,7 @@
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
+from app.models.cart import Cart
 
 
 class User(BaseModel):
@@ -10,7 +11,7 @@ class User(BaseModel):
     auth0_id: Optional[str] = None  # Auth0 user ID (sub claim)
     password_hash: Optional[str] = None  # For future email/password auth
     cart_count: int = 0
-    carts: List[dict] = []
+    carts: List[Cart] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
