@@ -5,29 +5,6 @@ from .database import cart_collection
 from app.models.item import ItemInDB
 from app.models.cart import Cart
 
-# POST
-async def add_item_to_cart(email: str, cart_id: str, item: dict) -> Dict[str, Any]:
-    """Add an item with a unique ID to a specific cart and update the item count."""
-    # Create ItemInDB from dict
-    item["item_id"] = str(uuid4())  # Generate unique item_id
-    item["added_at"] = datetime.utcnow().isoformat()
-    item_in_db = ItemInDB.from_mongo(item)
-    
-    # Convert to dict for MongoDB
-    item_dict = item_in_db.to_mongo_dict()
-
-    result = await cart_collection.update_one(
-        {"email": email, "carts.cart_id": cart_id},
-        {
-            "$push": {"carts.$.items": item_dict},
-            "$inc": {"carts.$.item_count": 1}
-        }
-    )
-
-    if result.matched_count == 0:
-        return {"message": "Cart not found!"}
-    return {"message": "Item added successfully!", "item_id": item_in_db.item_id}
-
 #GET items from cart
 async def retrieve_cart_items(email: str, cart_id: str) -> Cart:
     """

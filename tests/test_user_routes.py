@@ -18,8 +18,8 @@ class TestUserRoutes:
         
         # Add item to cart
         item_response = authenticated_client.post(
-            f"/carts/{cart_id}/items",
-            json=sample_item_data
+            "/carts/items/add-new",
+            json={**sample_item_data, "selected_cart_ids": [cart_id]}
         )
         
         yield cart_id
