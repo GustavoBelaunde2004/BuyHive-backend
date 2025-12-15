@@ -3,6 +3,8 @@ Tests for authentication endpoints.
 """
 import pytest
 from fastapi import status
+from unittest.mock import patch, AsyncMock
+from jose import JWTError
 
 
 class TestAuthEndpoints:
@@ -36,11 +38,15 @@ class TestAuthEndpoints:
     
     def test_get_current_user_invalid_token(self, unauthenticated_client):
         """Test that invalid tokens are rejected."""
-        response = unauthenticated_client.get(
-            "/auth/me",
-            headers={"Authorization": "Bearer invalid_token"}
-        )
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        # Mock verify_auth0_token to raise JWTError for invalid tokens
+        # This prevents the test from trying to connect to Auth0's JWKS endpoint
+        # Use AsyncMock since verify_auth0_token is an async function
+        with patch("app.auth.dependencies.verify_auth0_token", new_callable=AsyncMock, side_effect=JWTError("Invalid token")):
+            response = unauthenticated_client.get(
+                "/auth/me",
+                headers={"Authorization": "Bearer invalid_token"}
+            )
+            assert response.status_code == status.HTTP_401_UNAUTHORIZED
     
     def test_get_current_user_missing_token(self, unauthenticated_client):
         """Test that missing token is rejected."""
