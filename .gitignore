@@ -50,3 +50,9 @@ ml_training/**/checkpoint-*
 *.safetensors
 .venv/
 ml_training/url/bert_models/bert_model_2/
+
+# Coverage reports
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/

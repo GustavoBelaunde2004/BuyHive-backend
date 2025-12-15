@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""
     
     class Config:
+        # Load from .env file (default)
+        # For environment-specific configs, use .env.production, .env.staging, etc.
+        # and set ENVIRONMENT variable, or pass env_file when instantiating
         env_file = ".env"
         case_sensitive = True
         extra = "ignore"  # Ignore extra environment variables (like CLIENT_ID, CLIENT_SECRET)
@@ -66,6 +69,16 @@ class Settings(BaseSettings):
         if not self.ALLOWED_ORIGINS:
             return []
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+    
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment."""
+        return self.ENVIRONMENT.lower() == "production"
+    
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development environment."""
+        return self.ENVIRONMENT.lower() == "development"
     
     def validate_production(self):
         """Validate required settings for production environment."""

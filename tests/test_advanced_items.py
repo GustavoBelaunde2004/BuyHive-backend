@@ -68,9 +68,13 @@ class TestAdvancedItemOperations:
         cart_id = test_carts[0]
         
         # First, add item normally
+        payload = {
+            **sample_item_data,
+            "selected_cart_ids": [cart_id]
+        }
         add_response = authenticated_client.post(
-            f"/carts/{cart_id}/items",
-            json=sample_item_data
+            "/carts/items/add-new",
+            json=payload
         )
         assert add_response.status_code == status.HTTP_200_OK
         
@@ -92,12 +96,19 @@ class TestAdvancedItemOperations:
         target_cart_id = test_carts[1]
         
         # Add item to source cart
+        payload = {
+            **sample_item_data,
+            "selected_cart_ids": [source_cart_id]
+        }
         add_response = authenticated_client.post(
-            f"/carts/{source_cart_id}/items",
-            json=sample_item_data
+            "/carts/items/add-new",
+            json=payload
         )
         assert add_response.status_code == status.HTTP_200_OK
-        item_id = add_response.json()["item_id"]
+        # Get item_id from response
+        response_data = add_response.json()
+        item_id = response_data.get("item", {}).get("item_id") or response_data.get("existing_item", {}).get("item_id")
+        assert item_id is not None
         
         # Move item to target cart
         move_response = authenticated_client.put(
@@ -122,11 +133,19 @@ class TestAdvancedItemOperations:
         target_cart_ids = test_carts[1:3]  # Move to 2 carts
         
         # Add item to source cart
+        payload = {
+            **sample_item_data,
+            "selected_cart_ids": [source_cart_id]
+        }
         add_response = authenticated_client.post(
-            f"/carts/{source_cart_id}/items",
-            json=sample_item_data
+            "/carts/items/add-new",
+            json=payload
         )
-        item_id = add_response.json()["item_id"]
+        assert add_response.status_code == status.HTTP_200_OK
+        # Get item_id from response
+        response_data = add_response.json()
+        item_id = response_data.get("item", {}).get("item_id") or response_data.get("existing_item", {}).get("item_id")
+        assert item_id is not None
         
         # Move item to multiple carts
         move_response = authenticated_client.put(
@@ -157,11 +176,19 @@ class TestAdvancedItemOperations:
         cart_id = test_carts[0]
         
         # Add item
+        payload = {
+            **sample_item_data,
+            "selected_cart_ids": [cart_id]
+        }
         add_response = authenticated_client.post(
-            f"/carts/{cart_id}/items",
-            json=sample_item_data
+            "/carts/items/add-new",
+            json=payload
         )
-        item_id = add_response.json()["item_id"]
+        assert add_response.status_code == status.HTTP_200_OK
+        # Get item_id from response
+        response_data = add_response.json()
+        item_id = response_data.get("item", {}).get("item_id") or response_data.get("existing_item", {}).get("item_id")
+        assert item_id is not None
         
         # Nuke the item
         nuke_response = authenticated_client.delete(f"/carts/items/{item_id}/nuke")
@@ -273,11 +300,20 @@ class TestAdvancedItemOperations:
     def test_complex_multi_cart_scenario(self, authenticated_client, test_carts, sample_item_data):
         """Test complex scenario with multiple carts and items."""
         # Add item to first cart
+        payload1 = {
+            **sample_item_data,
+            "name": "Item 1",
+            "selected_cart_ids": [test_carts[0]]
+        }
         item1_response = authenticated_client.post(
-            f"/carts/{test_carts[0]}/items",
-            json={**sample_item_data, "name": "Item 1"}
+            "/carts/items/add-new",
+            json=payload1
         )
-        item1_id = item1_response.json()["item_id"]
+        assert item1_response.status_code == status.HTTP_200_OK
+        # Get item_id from response
+        response_data1 = item1_response.json()
+        item1_id = response_data1.get("item", {}).get("item_id") or response_data1.get("existing_item", {}).get("item_id")
+        assert item1_id is not None
         
         # Add new item across multiple carts
         payload = {

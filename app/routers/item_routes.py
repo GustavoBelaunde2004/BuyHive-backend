@@ -1,32 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends
-from app.functions.item import add_item_to_cart, update_item_note, delete_item, retrieve_cart_items, add_new_item_across_carts, modify_existing_item_across_carts, nuke
-from app.functions.base import Item, EditNoteRequest, AddNewItemRequest
+from app.functions.item import update_item_note, delete_item, retrieve_cart_items, add_new_item_across_carts, modify_existing_item_across_carts, nuke
+from app.functions.base import EditNoteRequest, AddNewItemRequest
 from app.auth.dependencies import get_current_user
 from app.models.user import User
 from app.utils.rate_limiter import rate_limit
 
 router = APIRouter()
 
-@router.post("/{cart_id}/items")
-async def add_item(
-    cart_id: str,
-    payload: Item,
-    current_user: User = Depends(get_current_user)
-):
-    """Add an item to a specific cart."""
-    try:
-        item_as_dict = payload.model_dump()
-        if item_as_dict.get("image"):
-            item_as_dict["image"] = str(item_as_dict["image"])
-        if item_as_dict.get("url"):
-            item_as_dict["url"] = str(item_as_dict["url"])
-
-        # Pass the converted dictionary to the model function
-        response = await add_item_to_cart(current_user.email, cart_id, item_as_dict)
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
 #GET ITEMS
 @router.get("/{cart_id}/items")
 async def get_cart_items(

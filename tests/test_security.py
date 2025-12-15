@@ -34,7 +34,7 @@ class TestSecurity:
             ("GET", "/carts"),
             ("POST", "/carts"),
             ("GET", "/carts/test_id/items"),
-            ("POST", "/carts/test_id/items"),
+            ("POST", "/carts/items/add-new"),
         ]
         
         for method, endpoint in protected_endpoints:
@@ -72,27 +72,28 @@ class TestSecurity:
         
         # Missing required fields
         response = authenticated_client.post(
-            f"/carts/{cart_id}/items",
-            json={"name": "Test"}  # Missing price
+            "/carts/items/add-new",
+            json={"name": "Test", "selected_cart_ids": [cart_id]}  # Missing price
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         
         # Empty name
         response = authenticated_client.post(
-            f"/carts/{cart_id}/items",
-            json={"name": "", "price": "99.99"}
+            "/carts/items/add-new",
+            json={"name": "", "price": "99.99", "selected_cart_ids": [cart_id]}
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         
         # Valid item (with optional fields as None/null)
         response = authenticated_client.post(
-            f"/carts/{cart_id}/items",
+            "/carts/items/add-new",
             json={
                 "name": "Valid Item",
                 "price": "99.99",
                 "image": None,
                 "url": None,
-                "notes": None
+                "notes": None,
+                "selected_cart_ids": [cart_id]
             }
         )
         assert response.status_code == status.HTTP_200_OK
