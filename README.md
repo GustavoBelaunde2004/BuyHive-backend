@@ -21,7 +21,7 @@ Extension-backend is a FastAPI-based backend for an e-commerce browser extension
 - **AI/ML**: OpenAI, CLIP, BERT (HuggingFace Transformers, TensorFlow, PyTorch)
 - **Database**: MongoDB Atlas (via `motor`)
 - **Email**: AWS SES (migrated from Gmail SMTP)
-- **Deployment**: Docker, AWS ECS Fargate
+- **Deployment**: Docker, Railway
 - **CI/CD**: GitHub Actions
 - **Other Libraries**: pandas, scikit-learn, requests, beautifulsoup4, lxml, etc.
 
@@ -97,16 +97,9 @@ docker-compose down
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
 
-### Quick Deploy to AWS
-
-1. Follow [AWS_CONSOLE_SETUP.md](./AWS_CONSOLE_SETUP.md) for AWS setup
-2. Push to `main` branch - CI/CD will automatically deploy
-3. Or manually deploy using `scripts/deploy.sh`
-
 ## Documentation
 
 - [DEPLOYMENT.md](./DEPLOYMENT.md) - Deployment guide
-- [AWS_CONSOLE_SETUP.md](./AWS_CONSOLE_SETUP.md) - Step-by-step AWS setup
 - [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) - API reference
 - [RUNBOOK.md](./RUNBOOK.md) - Operations guide
 
