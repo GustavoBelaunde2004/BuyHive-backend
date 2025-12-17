@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
 from app.auth.auth0 import verify_auth0_token, get_or_create_user_from_token
-from app.functions.database import cart_collection
+from app.functions.database import users_collection
 from app.models.user import User
 from typing import Optional
 
@@ -29,10 +29,10 @@ async def get_current_user(
         
         # Get or create user from token
         user_info = await get_or_create_user_from_token(payload)
-        email = user_info["email"]
+        user_id = user_info["user_id"]
         
         # Get user from database
-        user_data = await cart_collection.find_one({"email": email})
+        user_data = await users_collection.find_one({"user_id": user_id})
         
         if not user_data:
             raise HTTPException(

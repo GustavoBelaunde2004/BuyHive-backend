@@ -22,7 +22,7 @@ async def share_cart(
         cart_id = payload.cart_id
 
         # Retrieve the user's carts
-        user_carts = await get_carts(current_user.email)
+        user_carts = await get_carts(current_user.user_id)
         cart_to_share = next((cart for cart in user_carts if cart.cart_id == cart_id), None)
 
         if not cart_to_share:

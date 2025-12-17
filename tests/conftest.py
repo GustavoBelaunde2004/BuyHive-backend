@@ -70,6 +70,7 @@ def mock_get_or_create_user():
     """
     async def mock_get_user(payload: dict):
         return {
+            "user_id": TEST_AUTH0_ID,
             "email": TEST_USER_EMAIL,
             "name": TEST_USER_NAME,
             "auth0_id": TEST_AUTH0_ID,
@@ -84,11 +85,12 @@ def mock_user_in_db():
     Mock user data as it would appear in the database.
     """
     return {
+        "user_id": TEST_AUTH0_ID,
         "email": TEST_USER_EMAIL,
         "name": TEST_USER_NAME,
         "auth0_id": TEST_AUTH0_ID,
         "cart_count": 0,
-        "carts": [],
+        "cart_ids": [],
         "created_at": datetime.utcnow().isoformat(),
         "updated_at": datetime.utcnow().isoformat(),
     }
@@ -108,24 +110,193 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
     Create a test client with mocked authentication and stateful database.
     All requests will be treated as authenticated with TEST_USER_EMAIL.
     """
-    from app.functions.database import cart_collection
     from uuid import uuid4
     
-    # Track state for the mock database - create fresh state for each test
-    # Don't use mock_user_in_db directly to avoid any shared state issues
+    # In-memory DB state for 3-collection model
+    now = datetime.utcnow().isoformat()
     db_state = {
         "users": {
-            TEST_USER_EMAIL: {
+            TEST_AUTH0_ID: {
+                "user_id": TEST_AUTH0_ID,
+                "auth0_id": TEST_AUTH0_ID,
                 "email": TEST_USER_EMAIL,
                 "name": TEST_USER_NAME,
-                "auth0_id": TEST_AUTH0_ID,
                 "cart_count": 0,
-                "carts": [],  # Always start with empty carts
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat(),
+                "cart_ids": [],
+                "created_at": now,
+                "updated_at": now,
             }
-        }
+        },
+        "carts": {},  # cart_id -> cart_doc
+        "items": {},  # item_id -> item_doc
     }
+
+    class MockInsertResult:
+        def __init__(self, inserted_id="mock_id"):
+            self.inserted_id = inserted_id
+
+    class MockDeleteResult:
+        def __init__(self, deleted_count=1):
+            self.deleted_count = deleted_count
+
+    class MockCursor:
+        def __init__(self, docs):
+            self._docs = docs
+
+        async def to_list(self, length=None):
+            return copy.deepcopy(self._docs)
+
+    def _match_query(doc: dict, query: dict) -> bool:
+        for k, v in query.items():
+            if isinstance(v, dict) and "$in" in v:
+                if doc.get(k) not in v["$in"]:
+                    return False
+            else:
+                if doc.get(k) != v:
+                    return False
+        return True
+
+    def _apply_update(doc: dict, update_op: dict):
+        modified = False
+        if "$set" in update_op:
+            for k, v in update_op["$set"].items():
+                if doc.get(k) != v:
+                    doc[k] = v
+                    modified = True
+        if "$setOnInsert" in update_op:
+            # handled by caller for upsert
+            pass
+        if "$inc" in update_op:
+            for k, v in update_op["$inc"].items():
+                doc[k] = int(doc.get(k, 0)) + int(v)
+                modified = True
+        if "$push" in update_op:
+            for k, v in update_op["$push"].items():
+                arr = doc.get(k) or []
+                arr.append(v)
+                doc[k] = arr
+                modified = True
+        if "$addToSet" in update_op:
+            for k, v in update_op["$addToSet"].items():
+                arr = doc.get(k) or []
+                if v not in arr:
+                    arr.append(v)
+                    doc[k] = arr
+                    modified = True
+        if "$pull" in update_op:
+            for k, v in update_op["$pull"].items():
+                arr = doc.get(k) or []
+                if v in arr:
+                    arr = [x for x in arr if x != v]
+                    doc[k] = arr
+                    modified = True
+        return modified
+
+    class InMemoryCollection:
+        def __init__(self, name: str):
+            self.name = name
+
+        async def find_one(self, query: dict, projection=None):
+            if self.name == "users":
+                for doc in db_state["users"].values():
+                    if _match_query(doc, query):
+                        return copy.deepcopy(doc)
+                return None
+            if self.name == "carts":
+                for doc in db_state["carts"].values():
+                    if _match_query(doc, query):
+                        return copy.deepcopy(doc)
+                return None
+            if self.name == "items":
+                for doc in db_state["items"].values():
+                    if _match_query(doc, query):
+                        return copy.deepcopy(doc)
+                return None
+            return None
+
+        def find(self, query: dict):
+            if self.name == "carts":
+                docs = [d for d in db_state["carts"].values() if _match_query(d, query)]
+                return MockCursor(docs)
+            if self.name == "items":
+                # support $in on item_id
+                docs = []
+                for d in db_state["items"].values():
+                    ok = True
+                    for k, v in query.items():
+                        if isinstance(v, dict) and "$in" in v:
+                            if d.get(k) not in v["$in"]:
+                                ok = False
+                                break
+                        else:
+                            if d.get(k) != v:
+                                ok = False
+                                break
+                    if ok:
+                        docs.append(d)
+                return MockCursor(docs)
+            return MockCursor([])
+
+        async def insert_one(self, doc: dict):
+            if self.name == "users":
+                db_state["users"][doc["user_id"]] = copy.deepcopy(doc)
+            elif self.name == "carts":
+                db_state["carts"][doc["cart_id"]] = copy.deepcopy(doc)
+            elif self.name == "items":
+                db_state["items"][doc["item_id"]] = copy.deepcopy(doc)
+            return MockInsertResult()
+
+        async def update_one(self, filter_query: dict, update_op: dict, upsert: bool = False):
+            # Resolve collection and find target doc
+            store = db_state[self.name]
+            target_key = None
+            target_doc = None
+
+            if self.name == "users":
+                # keyed by user_id
+                for k, d in store.items():
+                    if _match_query(d, filter_query):
+                        target_key, target_doc = k, d
+                        break
+                if target_doc is None and upsert:
+                    base = {}
+                    base.update(update_op.get("$setOnInsert", {}))
+                    base.update(update_op.get("$set", {}))
+                    if "user_id" in filter_query:
+                        base.setdefault("user_id", filter_query["user_id"])
+                        base.setdefault("auth0_id", filter_query["user_id"])
+                    base.setdefault("cart_ids", [])
+                    base.setdefault("cart_count", 0)
+                    store[base["user_id"]] = base
+                    return MockUpdateResult(modified_count=1, matched_count=0, upserted_id="upserted")
+
+            else:
+                # carts/items keyed by id field
+                for k, d in store.items():
+                    if _match_query(d, filter_query):
+                        target_key, target_doc = k, d
+                        break
+
+            if target_doc is None:
+                return MockUpdateResult(modified_count=0, matched_count=0)
+
+            modified = _apply_update(target_doc, update_op)
+            store[target_key] = target_doc
+            return MockUpdateResult(modified_count=1 if modified else 0, matched_count=1)
+
+        async def delete_one(self, filter_query: dict):
+            store = db_state[self.name]
+            delete_keys = []
+            for k, d in store.items():
+                if _match_query(d, filter_query):
+                    delete_keys.append(k)
+                    break
+            for k in delete_keys:
+                del store[k]
+            return MockDeleteResult(deleted_count=len(delete_keys))
+
+        async def create_index(self, *args, **kwargs):
+            return "mock_index"
     
     async def mock_find_one(query: dict, projection=None):
         email = query.get("email")
@@ -307,13 +478,9 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
                 return MockUpdateResult(modified_count=1 if modified else 0)
         return MockUpdateResult(modified_count=0)
     
-    # Create the mock collection
-    mock_collection = MagicMock()
-    mock_collection.find_one = AsyncMock(side_effect=mock_find_one)
-    mock_collection.update_one = AsyncMock(side_effect=mock_update_one)
-    mock_collection.update_many = AsyncMock(side_effect=mock_update_many)
-    mock_collection.insert_one = AsyncMock()
-    mock_collection.delete_one = AsyncMock()
+    users_mock = InMemoryCollection("users")
+    carts_mock = InMemoryCollection("carts")
+    items_mock = InMemoryCollection("items")
     
     # Import the modules to patch them
     import app.auth.auth0 as auth0_module
@@ -321,51 +488,53 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
     import app.functions.database as db_module
     import app.functions.cart as cart_module
     import app.functions.item as item_module
+    import app.functions.user as user_module
     
-    # Patch where the functions are used (in dependencies module and where imported)
+    # Patch verify_auth0_token, and replace DB collections everywhere they are imported/used.
     with patch.object(auth0_module, "verify_auth0_token", side_effect=mock_verify_token):
-        with patch.object(auth0_module, "get_or_create_user_from_token", side_effect=mock_get_or_create_user):
-            with patch.object(deps_module, "verify_auth0_token", side_effect=mock_verify_token):
-                with patch.object(deps_module, "get_or_create_user_from_token", side_effect=mock_get_or_create_user):
-                    with patch.object(db_module, "cart_collection", mock_collection):
-                        with patch.object(deps_module, "cart_collection", mock_collection):
-                            with patch.object(cart_module, "cart_collection", mock_collection):
-                                with patch.object(item_module, "cart_collection", mock_collection):
-                                    with TestClient(app) as client:
-                                        # Store auth headers for use in requests
-                                        auth_headers = {"Authorization": "Bearer mock_token_for_testing"}
-                                        client._auth_headers = auth_headers
-                                        
-                                        # Save original methods BEFORE patching (to avoid recursion)
-                                        original_get = client.get
-                                        original_post = client.post
-                                        original_put = client.put
-                                        original_delete = client.delete
-                                        
-                                        # Helper methods that call the ORIGINAL methods (not the patched ones)
-                                        def _get(url, **kwargs):
-                                            kwargs.setdefault("headers", {}).update(auth_headers)
-                                            return original_get(url, **kwargs)
-                                        
-                                        def _post(url, **kwargs):
-                                            kwargs.setdefault("headers", {}).update(auth_headers)
-                                            return original_post(url, **kwargs)
-                                        
-                                        def _put(url, **kwargs):
-                                            kwargs.setdefault("headers", {}).update(auth_headers)
-                                            return original_put(url, **kwargs)
-                                        
-                                        def _delete(url, **kwargs):
-                                            kwargs.setdefault("headers", {}).update(auth_headers)
-                                            return original_delete(url, **kwargs)
-                                        
-                                        # NOW we can safely monkey patch (the wrappers call original methods)
-                                        client.get = _get
-                                        client.post = _post
-                                        client.put = _put
-                                        client.delete = _delete
-                                        
-                                        yield client
+        with patch.object(deps_module, "verify_auth0_token", side_effect=mock_verify_token):
+            with patch.object(db_module, "users_collection", users_mock):
+                with patch.object(db_module, "carts_collection", carts_mock):
+                    with patch.object(db_module, "items_collection", items_mock):
+                        with patch.object(auth0_module, "users_collection", users_mock):
+                            with patch.object(deps_module, "users_collection", users_mock):
+                                with patch.object(cart_module, "users_collection", users_mock):
+                                    with patch.object(cart_module, "carts_collection", carts_mock):
+                                        with patch.object(cart_module, "items_collection", items_mock):
+                                            with patch.object(item_module, "carts_collection", carts_mock):
+                                                with patch.object(item_module, "items_collection", items_mock):
+                                                    with patch.object(user_module, "users_collection", users_mock):
+                                                        with TestClient(app) as client:
+                                                            auth_headers = {"Authorization": "Bearer mock_token_for_testing"}
+                                                            client._auth_headers = auth_headers
+
+                                                            original_get = client.get
+                                                            original_post = client.post
+                                                            original_put = client.put
+                                                            original_delete = client.delete
+
+                                                            def _get(url, **kwargs):
+                                                                kwargs.setdefault("headers", {}).update(auth_headers)
+                                                                return original_get(url, **kwargs)
+
+                                                            def _post(url, **kwargs):
+                                                                kwargs.setdefault("headers", {}).update(auth_headers)
+                                                                return original_post(url, **kwargs)
+
+                                                            def _put(url, **kwargs):
+                                                                kwargs.setdefault("headers", {}).update(auth_headers)
+                                                                return original_put(url, **kwargs)
+
+                                                            def _delete(url, **kwargs):
+                                                                kwargs.setdefault("headers", {}).update(auth_headers)
+                                                                return original_delete(url, **kwargs)
+
+                                                            client.get = _get
+                                                            client.post = _post
+                                                            client.put = _put
+                                                            client.delete = _delete
+
+                                                            yield client
 
 
 @pytest.fixture

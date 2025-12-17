@@ -2,7 +2,7 @@ import httpx
 from typing import Dict, Any, Optional
 from jose import jwt, JWTError
 from app.config.settings import settings
-from app.functions.database import cart_collection
+from app.functions.database import users_collection
 from datetime import datetime
 
 
@@ -160,9 +160,13 @@ async def get_or_create_user_from_token(payload: Dict[str, Any]) -> Dict[str, An
     
     # Extract user info from Auth0 token
     # Auth0 token typically has: sub (user ID), email, name, etc.
+    user_id = payload.get("sub")  # Auth0 user ID (stable)
     email_raw = payload.get("email") or payload.get("https://your-namespace/email")
     name = payload.get("name") or payload.get("nickname", "Unknown")
-    auth0_id = payload.get("sub")  # Auth0 user ID
+    auth0_id = user_id
+
+    if not user_id:
+        raise ValueError("No user_id (sub) found in Auth0 token.")
     
     # Validate email format
     email = None
@@ -182,34 +186,30 @@ async def get_or_create_user_from_token(payload: Dict[str, Any]) -> Dict[str, An
             f"Please ensure your Auth0 application requests the 'email' scope."
         )
     
-    # Create or update user in database
-    user_data = {
-        "email": email,
-        "name": name,
-        "auth0_id": auth0_id,
-        "updated_at": datetime.utcnow().isoformat(),
-    }
-    
-    existing_user = await cart_collection.find_one({"email": email})
-    
-    if existing_user:
-        # Update existing user
-        await cart_collection.update_one(
-            {"email": email},
-            {"$set": user_data}
-        )
-        # Preserve existing fields
-        user_data = {**existing_user, **user_data}
-    else:
-        # Create new user
-        user_data.update({
-            "cart_count": 0,
-            "carts": [],
-            "created_at": datetime.utcnow().isoformat(),
-        })
-        await cart_collection.insert_one(user_data)
-    
+    now = datetime.utcnow().isoformat()
+
+    # Upsert user in users collection keyed by user_id (Auth0 sub)
+    await users_collection.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "email": email,
+                "name": name,
+                "auth0_id": auth0_id,  # kept for compatibility
+                "updated_at": now,
+            },
+            "$setOnInsert": {
+                "user_id": user_id,
+                "created_at": now,
+                "cart_count": 0,
+                "cart_ids": [],
+            },
+        },
+        upsert=True,
+    )
+
     return {
+        "user_id": user_id,
         "email": email,
         "name": name,
         "auth0_id": auth0_id,

@@ -1,6 +1,6 @@
 from typing import List
 from app.config.settings import settings
-from .database import cart_collection
+from .database import users_collection
 from app.models.item import ItemInDB
 from app.services.email_service import send_email_ses
 
@@ -82,15 +82,16 @@ async def send_email_gmail(recipient_email: str, cart_name: str, cart_items: Lis
 # USER FUNCTIONS --------------------------------------------------------------------------------------------------------------
 async def add_user_by_email(email: str, name: str = "Unknown") -> dict:
     """Add a new user to the database or ensure they already exist."""
-    existing_user = await cart_collection.find_one({"email": email})
+    existing_user = await users_collection.find_one({"email": email})
     if existing_user:
         return {"message": "User already exists!"}
 
     new_user = {
+        "user_id": f"email|{email}",  # legacy helper: stable id not available here
         "email": email,
         "name": name,
         "cart_count": 0,
-        "carts": []
+        "cart_ids": [],
     }
-    await cart_collection.insert_one(new_user)
+    await users_collection.insert_one(new_user)
     return {"message": "User added successfully!"}

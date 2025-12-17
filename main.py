@@ -11,10 +11,30 @@ from app.services.clip_verifier import check_clip_model_status
 from app.services.bert_verifier import MODEL_AVAILABLE
 from app.services.vision_verifier import check_openai_vision_availability
 from app.functions.database import client
+from app.functions.database import users_collection, carts_collection, items_collection
 from datetime import datetime
 import httpx
 
 app = FastAPI()
+
+
+@app.on_event("startup")
+async def ensure_mongo_indexes() -> None:
+    """
+    Create MongoDB indexes for the 3-collection schema.
+    Skipped in tests to avoid touching real MongoDB.
+    """
+    if settings.ENVIRONMENT.lower() == "test":
+        return
+    try:
+        await users_collection.create_index("user_id", unique=True)
+        await carts_collection.create_index([("user_id", 1), ("cart_id", 1)], unique=True)
+        await items_collection.create_index([("user_id", 1), ("item_id", 1)], unique=True)
+        # Optional but recommended to prevent duplicate URLs per user (only works when url is non-null)
+        await items_collection.create_index([("user_id", 1), ("url", 1)], unique=True, sparse=True)
+    except Exception:
+        # Index creation should never prevent the app from starting
+        return
 
 # Rate limiting setup
 if settings.RATE_LIMIT_ENABLED:

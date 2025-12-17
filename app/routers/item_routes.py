@@ -17,7 +17,7 @@ async def get_cart_items(
     Retrieve all items from a specific cart.
     """
     try:
-        response = await retrieve_cart_items(current_user.email, cart_id)
+        response = await retrieve_cart_items(current_user.user_id, cart_id)
         return response
     except ValueError as e:
         # Handle not found cases with 404
@@ -38,7 +38,7 @@ async def edit_item_note(
     Edit the note for all occurrences of the item across all carts.
     """
     try:
-        response = await update_item_note(current_user.email, item_id, payload.new_note)
+        response = await update_item_note(current_user.user_id, item_id, payload.new_note)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -56,7 +56,7 @@ async def remove_item(
     If the item is only in one cart, fully delete it.
     """
     try:
-        response = await delete_item(current_user.email, cart_id, item_id)
+        response = await delete_item(current_user.user_id, cart_id, item_id)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -78,7 +78,7 @@ async def add_new_item(
         if item_details.get("url"):
             item_details["url"] = str(item_details["url"])
 
-        response = await add_new_item_across_carts(current_user.email, item_details, payload.selected_cart_ids)
+        response = await add_new_item_across_carts(current_user.user_id, item_details, payload.selected_cart_ids)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -95,7 +95,7 @@ async def move_item(
     """
     try:
         selected_cart_ids = payload.get("selected_cart_ids", [])
-        response = await modify_existing_item_across_carts(current_user.email, item_id, selected_cart_ids)
+        response = await modify_existing_item_across_carts(current_user.user_id, item_id, selected_cart_ids)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -108,7 +108,7 @@ async def remove_item_from_all(
 ):
     """Delete an item from all carts for a user."""
     try:
-        response = await nuke(current_user.email, item_id)
+        response = await nuke(current_user.user_id, item_id)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

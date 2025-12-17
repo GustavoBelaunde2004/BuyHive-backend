@@ -18,7 +18,7 @@ async def add_cart(
 ):
     """Add a new cart for a user."""
     try:
-        response = await save_cart(current_user.email, payload.cart_name)
+        response = await save_cart(current_user.user_id, payload.cart_name)
         return response
     except Exception as e:  
         raise HTTPException(status_code=500, detail=str(e))
@@ -32,7 +32,7 @@ async def edit_cart_name(
 ):
     """Edit the name of a specific cart."""
     try:
-        response = await update_cart_name(current_user.email, cart_id, payload.new_name)
+        response = await update_cart_name(current_user.user_id, cart_id, payload.new_name)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -42,7 +42,7 @@ async def edit_cart_name(
 async def retrieve_carts(current_user: User = Depends(get_current_user)) -> dict:
     """Get all carts for a user."""
     try:
-        carts = await get_carts(current_user.email)
+        carts = await get_carts(current_user.user_id)
         return {"carts": carts}  # FastAPI will auto-serialize List[Cart] to JSON
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -55,7 +55,7 @@ async def remove_cart(
 ):
     """Delete a specific cart for a user."""
     try:
-        response = await delete_cart(current_user.email, cart_id)
+        response = await delete_cart(current_user.user_id, cart_id)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

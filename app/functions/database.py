@@ -14,4 +14,8 @@ client = AsyncIOMotorClient(
     connectTimeoutMS=10000,  # Timeout for initial connection
 )
 db = client["buyHive"]
-cart_collection = db["cartItems"]
+
+# Collections (3-collection model)
+users_collection = db["users"]
+carts_collection = db["carts"]
+items_collection = db["items"]
