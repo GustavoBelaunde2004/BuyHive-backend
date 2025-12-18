@@ -37,7 +37,7 @@ async def retrieve_cart_items(user_id: str, cart_id: str) -> Cart:
         items=items,
     )
 
-# PUT (Edits notes for all apereances of saem item in every car per user)
+# PUT (Edits notes for all appearances of same item in every cart per user)
 async def update_item_note(user_id: str, item_id: str, new_note: str) -> ItemInDB:
     """
     Update the note for all occurrences of the item across all carts of a user.
