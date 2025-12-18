@@ -5,7 +5,7 @@ from .database import carts_collection, items_collection
 from app.models.item import ItemInDB
 from app.models.cart import Cart
 
-#GET items from cart
+# GET items from cart
 async def retrieve_cart_items(user_id: str, cart_id: str) -> Cart:
     """
     Retrieve all items from a specific cart for a given user.
@@ -56,7 +56,7 @@ async def update_item_note(user_id: str, item_id: str, new_note: str) -> ItemInD
     return ItemInDB.from_mongo(updated_item_doc)
 
 
-#DELETE
+# DELETE item from cart
 async def delete_item(user_id: str, cart_id: str, item_id: str) -> Dict[str, str]:
     """
     Delete a specific item from a cart and update its selected_cart_ids.
@@ -189,7 +189,7 @@ async def modify_existing_item_across_carts(user_id: str, item_id: str, selected
         raise ValueError("Item was moved but not found after update.")
     return ItemInDB.from_mongo(updated_item_doc)
 
-#Nuclear delete
+# Nuclear delete - removes item from all carts
 async def nuke(user_id: str, item_id: str) -> Dict[str, str]:
     """
     Deletes an item from all carts for a given user.
