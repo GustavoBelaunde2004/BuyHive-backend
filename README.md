@@ -20,8 +20,8 @@ BuyHive-backend is a FastAPI-based backend for an e-commerce browser extension. 
 - **Backend Framework**: FastAPI
 - **AI/ML**: OpenAI, CLIP, BERT (HuggingFace Transformers, TensorFlow, PyTorch)
 - **Database**: MongoDB Atlas (via `motor`)
-- **Email**: AWS SES (migrated from Gmail SMTP)
-- **Deployment**: Docker, Railway
+- **Email**: AWS SES (optional, for cart sharing via email)
+- **Deployment**: Railway (via Docker)
 - **CI/CD**: GitHub Actions
 - **Other Libraries**: pandas, scikit-learn, requests, beautifulsoup4, lxml, etc.
 
@@ -58,7 +58,9 @@ BuyHive-backend is a FastAPI-based backend for an e-commerce browser extension. 
    - `ALLOWED_ORIGINS` - Comma-separated allowed origins
    - `GROQ_API_KEY` - Groq API key
    - `OPENAI_API_KEY` - OpenAI API key
-   - AWS credentials (for SES email)
+   
+   **Optional** (for email functionality):
+   - AWS SES credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `SES_FROM_EMAIL`) - Only needed if you want to enable email features like cart sharing
 
 ## Running the Server
 
@@ -95,7 +97,9 @@ docker-compose down
 
 ## Deployment
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
+The application is deployed on **Railway** using Docker. See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
+
+**Note**: Deployment is handled entirely by Railway - no AWS infrastructure is required for deployment. AWS is only used optionally for email service (SES).
 
 ## Documentation
 
