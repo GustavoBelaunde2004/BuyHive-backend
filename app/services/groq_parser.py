@@ -20,7 +20,7 @@ def parse_inner_text_with_groq(input_text: str):
 
     Provide the output as a JSON object with keys 'product_name' and 'price'.
     If a field is missing, use 'null' as the value.
-    Remeber to only output the JSON, dont output anything else.
+    Remember to only output the JSON, don't output anything else.
 
     Text:
     {input_text.strip()}
