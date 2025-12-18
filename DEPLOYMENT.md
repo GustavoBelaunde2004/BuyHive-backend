@@ -1,6 +1,6 @@
 # BuyHive Backend - Deployment Guide
 
-This guide covers deploying BuyHive backend to Railway using Docker.
+This guide covers deploying BuyHive backend to **Railway** using Docker. The application is deployed entirely on Railway - no AWS infrastructure is required for deployment.
 
 ## Prerequisites
 
@@ -60,10 +60,11 @@ Set the minimum required variables:
 - `PORT=8000`
 
 Optional:
-- `BERT_MODEL_PATH` (only if you’re enabling URL classification in production)
+- `BERT_MODEL_PATH` (only if you're enabling URL classification in production)
 
-Email (AWS SES) is supported but optional for first deploy:
-- If you do **not** set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `SES_FROM_EMAIL`, email sending will be disabled, but the backend will still run.
+**Email Service (Optional)**: AWS SES credentials are only needed if you want to enable email functionality (e.g., cart sharing via email). This is completely optional:
+- If you do **not** set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `SES_FROM_EMAIL`, email sending will be disabled, but the backend will still run normally.
+- **Note**: AWS is only used for email service (SES), not for deployment. Deployment is handled entirely by Railway.
 
 ## Environment Configuration
 
@@ -116,7 +117,7 @@ Use Railway logs:
 
 For issues or questions:
 - Check [RUNBOOK.md](./RUNBOOK.md) for common operations
-- Review [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) for API details
+- Review interactive API docs at `/docs` endpoint (Swagger UI) when server is running
 - Open an issue on GitHub
 
 
