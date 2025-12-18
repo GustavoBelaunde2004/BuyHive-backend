@@ -52,10 +52,12 @@ Use your Railway service URL:
 - Verify `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` match your Auth0 API settings
 - Verify your frontend is requesting tokens for the same audience
 
-### Email sending doesn’t work
+### Email sending doesn't work
 
-Email uses AWS SES but is optional. If you haven’t configured SES yet:
+Email uses AWS SES but is completely optional. **Note**: AWS is only used for email service (SES), not for deployment. Deployment is handled entirely by Railway.
+
+If you haven't configured SES yet:
 - Leave `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `SES_FROM_EMAIL` unset
-- The backend will still run; the share-cart email endpoint will return a clear “not configured” error
+- The backend will still run normally; the share-cart email endpoint will return a clear "not configured" error
 
 
