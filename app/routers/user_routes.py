@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from app.functions.user import send_email_gmail
 from app.functions.cart import get_carts
 from app.functions.base import ShareCartRequest
@@ -13,6 +13,7 @@ router = APIRouter()
 # Route will be at /users/carts/share with prefix
 async def share_cart(
     payload: ShareCartRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user)
 ):
     """Share a cart by sending its details via email."""
@@ -31,14 +32,16 @@ async def share_cart(
         cart_name = cart_to_share.cart_name
         cart_items = cart_to_share.items
 
-        # Send email using AWS SES (migrated from Gmail SMTP in Phase 3)
-        result = await send_email_gmail(recipient_email, cart_name, cart_items)
+        # Send email asynchronously in background (non-blocking)
+        background_tasks.add_task(
+            send_email_gmail,
+            recipient_email,
+            cart_name,
+            cart_items
+        )
         
-        # Check if email sending failed
-        if "error" in result:
-            raise HTTPException(status_code=500, detail=result["error"])
-        
-        return result
+        # Return immediately without waiting for email delivery
+        return {"message": "Cart shared successfully! Email is being sent."}
 
     except HTTPException:
         # Re-raise HTTPException (like 404) as-is
