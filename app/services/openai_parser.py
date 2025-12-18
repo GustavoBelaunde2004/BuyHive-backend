@@ -4,9 +4,12 @@ from app.config.settings import settings
 
 openai.api_key = settings.OPENAI_API_KEY
 
-def parse_inner_text_with_openai(input_text: str):
+def parse_inner_text_with_openai(input_text: str) -> dict:
     """
     Send plain innerText to OpenAI and extract product information.
+    
+    Returns:
+        dict: Dictionary with 'product_name' and 'price' keys
     """
     if not isinstance(input_text, str) or not input_text.strip():
         raise ValueError("Invalid input: Expecting plain text input.")
@@ -55,9 +58,12 @@ def parse_inner_text_with_openai(input_text: str):
     except Exception as e:
         raise ValueError(f"Error parsing text with OpenAI: {e}")
 
-def parse_images_with_openai(page_url: str, product_name: str, image_urls: list):
+def parse_images_with_openai(page_url: str, product_name: str, image_urls: list) -> str:
     """
     Uses OpenAI to determine the best product image based on the page URL and product name.
+    
+    Returns:
+        str: The selected image URL
     """
     if not isinstance(image_urls, list) or not image_urls:
         raise ValueError("Invalid input: Expecting a list of image URLs.")

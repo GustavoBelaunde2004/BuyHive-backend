@@ -4,9 +4,12 @@ from app.config.settings import settings
 
 client = Groq(api_key=settings.GROQ_API_KEY)
 
-def parse_inner_text_with_groq(input_text: str):
+def parse_inner_text_with_groq(input_text: str) -> dict:
     """
     Send plain innerText to Groq and extract product information.
+    
+    Returns:
+        dict: Dictionary with 'product_name' and 'price' keys
     """
     if not isinstance(input_text, str) or not input_text.strip():
         raise ValueError("Invalid input: Expecting plain text input.")
@@ -57,10 +60,13 @@ def parse_inner_text_with_groq(input_text: str):
         raise ValueError(f"Error parsing text with Groq: {e}")
     
 
-def parse_images_with_groq(image_urls: list):
+def parse_images_with_groq(image_urls: list) -> str:
     """
     Send an array of image URLs to Groq and determine the best product image.
     Returns the selected image URL as plain text instead of JSON.
+    
+    Returns:
+        str: The selected image URL
     """
     if not isinstance(image_urls, list) or not image_urls:
         raise ValueError("Invalid input: Expecting a list of image URLs.")
