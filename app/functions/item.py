@@ -4,6 +4,8 @@ from typing import Dict, Any, List
 from .database import carts_collection, items_collection
 from app.models.item import ItemInDB
 from app.models.cart import Cart
+from pymongo import ReturnDocument
+from pymongo.operations import UpdateOne, UpdateMany, DeleteOne
 
 #GET items from cart
 async def retrieve_cart_items(user_id: str, cart_id: str) -> Cart:
@@ -43,16 +45,13 @@ async def update_item_note(user_id: str, item_id: str, new_note: str) -> ItemInD
     Update the note for all occurrences of the item across all carts of a user.
     Returns the updated item details as ItemInDB model.
     """
-    result = await items_collection.update_one(
+    updated_item_doc = await items_collection.find_one_and_update(
         {"user_id": user_id, "item_id": item_id},
         {"$set": {"notes": new_note}},
+        return_document=ReturnDocument.AFTER
     )
-    if result.matched_count == 0:
-        raise ValueError("Item not found!")
-
-    updated_item_doc = await items_collection.find_one({"user_id": user_id, "item_id": item_id})
     if not updated_item_doc:
-        raise ValueError("Item was updated but not found after update.")
+        raise ValueError("Item not found!")
     return ItemInDB.from_mongo(updated_item_doc)
 
 
@@ -77,16 +76,15 @@ async def delete_item(user_id: str, cart_id: str, item_id: str) -> Dict[str, str
     )
 
     # Remove cart_id from item.selected_cart_ids
-    item_doc = await items_collection.find_one({"user_id": user_id, "item_id": item_id})
-    if not item_doc:
-        return {"message": "Cart or item not found!"}
-
-    await items_collection.update_one(
+    updated_item = await items_collection.find_one_and_update(
         {"user_id": user_id, "item_id": item_id},
         {"$pull": {"selected_cart_ids": cart_id}},
+        return_document=ReturnDocument.AFTER
     )
-    updated_item = await items_collection.find_one({"user_id": user_id, "item_id": item_id})
-    selected_cart_ids = (updated_item or {}).get("selected_cart_ids") or []
+    if not updated_item:
+        return {"message": "Cart or item not found!"}
+
+    selected_cart_ids = updated_item.get("selected_cart_ids") or []
 
     if not selected_cart_ids:
         await items_collection.delete_one({"user_id": user_id, "item_id": item_id})
@@ -119,25 +117,34 @@ async def add_new_item_across_carts(user_id: str, item_details: dict, selected_c
                 "existing_item": ItemInDB.from_mongo(existing),
             }
 
-    # Validate carts exist for this user
-    for cart_id in selected_cart_ids:
-        cart_doc = await carts_collection.find_one({"user_id": user_id, "cart_id": cart_id})
-        if not cart_doc:
-            raise ValueError(f"Cart not found: {cart_id}")
+    # Batch validate all carts exist for this user
+    unique_cart_ids = list(dict.fromkeys(selected_cart_ids))
+    cart_docs = await carts_collection.find(
+        {"user_id": user_id, "cart_id": {"$in": unique_cart_ids}}
+    ).to_list(length=None)
+    
+    found_cart_ids = {cart_doc.get("cart_id") for cart_doc in cart_docs}
+    missing_cart_ids = set(unique_cart_ids) - found_cart_ids
+    if missing_cart_ids:
+        raise ValueError(f"Cart not found: {list(missing_cart_ids)[0]}")
 
     # Create item document once
     item_details["item_id"] = str(uuid4())
     item_details["added_at"] = datetime.utcnow().isoformat()
-    item_details["selected_cart_ids"] = list(dict.fromkeys(selected_cart_ids))
+    item_details["selected_cart_ids"] = unique_cart_ids
     item_in_db = ItemInDB.from_mongo(item_details)
     await items_collection.insert_one(item_in_db.to_mongo_dict() | {"user_id": user_id})
 
-    # Add item_id to each selected cart
-    for cart_id in selected_cart_ids:
-        await carts_collection.update_one(
+    # Bulk update: Add item_id to all selected carts
+    operations = [
+        UpdateOne(
             {"user_id": user_id, "cart_id": cart_id},
-            {"$addToSet": {"item_ids": item_in_db.item_id}, "$inc": {"item_count": 1}},
+            {"$addToSet": {"item_ids": item_in_db.item_id}, "$inc": {"item_count": 1}}
         )
+        for cart_id in unique_cart_ids
+    ]
+    if operations:
+        await carts_collection.bulk_write(operations)
 
     return {"message": "New item added successfully across selected carts.", "item": item_in_db}
 
@@ -160,31 +167,45 @@ async def modify_existing_item_across_carts(user_id: str, item_id: str, selected
     remove_from_cart_ids = list(current_cart_ids - target_cart_ids)
     add_to_cart_ids = list(target_cart_ids - current_cart_ids)
 
-    # Validate target carts exist
-    for cart_id in target_cart_ids:
-        cart_doc = await carts_collection.find_one({"user_id": user_id, "cart_id": cart_id})
-        if not cart_doc:
-            raise ValueError(f"Cart not found: {cart_id}")
+    # Batch validate all target carts exist
+    if target_cart_ids:
+        cart_docs = await carts_collection.find(
+            {"user_id": user_id, "cart_id": {"$in": list(target_cart_ids)}}
+        ).to_list(length=None)
+        found_cart_ids = {cart_doc.get("cart_id") for cart_doc in cart_docs}
+        missing_cart_ids = target_cart_ids - found_cart_ids
+        if missing_cart_ids:
+            raise ValueError(f"Cart not found: {list(missing_cart_ids)[0]}")
 
+    # Bulk update: remove item from carts
+    operations = []
     for cart_id in remove_from_cart_ids:
-        await carts_collection.update_one(
-            {"user_id": user_id, "cart_id": cart_id},
-            {"$pull": {"item_ids": item_id}, "$inc": {"item_count": -1}},
+        operations.append(
+            UpdateOne(
+                {"user_id": user_id, "cart_id": cart_id},
+                {"$pull": {"item_ids": item_id}, "$inc": {"item_count": -1}}
+            )
         )
-
+    
+    # Bulk update: add item to carts
     for cart_id in add_to_cart_ids:
-        await carts_collection.update_one(
-            {"user_id": user_id, "cart_id": cart_id},
-            {"$addToSet": {"item_ids": item_id}, "$inc": {"item_count": 1}},
+        operations.append(
+            UpdateOne(
+                {"user_id": user_id, "cart_id": cart_id},
+                {"$addToSet": {"item_ids": item_id}, "$inc": {"item_count": 1}}
+            )
         )
+    
+    if operations:
+        await carts_collection.bulk_write(operations)
 
+    # Update item's selected_cart_ids and return updated document
     updated_cart_ids = list(dict.fromkeys(selected_cart_ids))
-    await items_collection.update_one(
+    updated_item_doc = await items_collection.find_one_and_update(
         {"user_id": user_id, "item_id": item_id},
         {"$set": {"selected_cart_ids": updated_cart_ids}},
+        return_document=ReturnDocument.AFTER
     )
-
-    updated_item_doc = await items_collection.find_one({"user_id": user_id, "item_id": item_id})
     if not updated_item_doc:
         raise ValueError("Item was moved but not found after update.")
     return ItemInDB.from_mongo(updated_item_doc)
@@ -199,19 +220,33 @@ async def nuke(user_id: str, item_id: str) -> Dict[str, str]:
         return {"message": "Item not found in any cart!"}
 
     cart_ids = item_doc.get("selected_cart_ids") or []
-    modified_count = 0
-    for cart_id in cart_ids:
-        cart = await carts_collection.find_one({"user_id": user_id, "cart_id": cart_id})
-        if not cart:
-            continue
-        if item_id not in (cart.get("item_ids") or []):
-            continue
-        result = await carts_collection.update_one(
-            {"user_id": user_id, "cart_id": cart_id},
-            {"$pull": {"item_ids": item_id}, "$inc": {"item_count": -1}},
+    if not cart_ids:
+        await items_collection.delete_one({"user_id": user_id, "item_id": item_id})
+        return {"message": "Item successfully deleted from 0 cart(s)."}
+    
+    # Batch fetch all carts
+    cart_docs = await carts_collection.find(
+        {"user_id": user_id, "cart_id": {"$in": cart_ids}}
+    ).to_list(length=None)
+    
+    # Filter carts that actually contain the item_id
+    carts_to_update = [
+        cart_doc for cart_doc in cart_docs
+        if item_id in (cart_doc.get("item_ids") or [])
+    ]
+    
+    # Bulk update: remove item from all carts
+    operations = [
+        UpdateOne(
+            {"user_id": user_id, "cart_id": cart_doc.get("cart_id")},
+            {"$pull": {"item_ids": item_id}, "$inc": {"item_count": -1}}
         )
-        if getattr(result, "modified_count", 0) > 0:
-            modified_count += 1
+        for cart_doc in carts_to_update
+    ]
+    
+    modified_count = len(carts_to_update)
+    if operations:
+        await carts_collection.bulk_write(operations)
 
     await items_collection.delete_one({"user_id": user_id, "item_id": item_id})
     return {"message": f"Item successfully deleted from {modified_count} cart(s)."}

@@ -3,6 +3,7 @@ from uuid import uuid4
 from typing import List
 from .database import users_collection, carts_collection, items_collection
 from app.models.cart import Cart
+from pymongo.operations import UpdateOne, UpdateMany, DeleteOne
 
 # POST
 async def save_cart(user_id: str, cart_name: str) -> dict:
@@ -54,20 +55,32 @@ async def update_cart_name(user_id: str, cart_id: str, new_name: str) -> dict:
 async def get_carts(user_id: str) -> List[Cart]:
     """Retrieve all carts for a user."""
     cart_docs = await carts_collection.find({"user_id": user_id}).to_list(length=None)
-    carts: List[Cart] = []
-
+    
+    # Collect all item_ids from all carts into a single set
+    all_item_ids = set()
+    cart_item_map = {}  # Maps cart_id to list of item_ids
     for cart_doc in cart_docs:
         item_ids = cart_doc.get("item_ids", [])
+        cart_item_map[cart_doc["cart_id"]] = item_ids
+        all_item_ids.update(item_ids)
+    
+    # Fetch all items in one batch query
+    items_lookup = {}
+    if all_item_ids:
+        item_docs = await items_collection.find(
+            {"user_id": user_id, "item_id": {"$in": list(all_item_ids)}}
+        ).to_list(length=None)
+        items_lookup = {d.get("item_id"): d for d in item_docs}
+    
+    # Build carts with items mapped back
+    carts: List[Cart] = []
+    for cart_doc in cart_docs:
+        item_ids = cart_item_map.get(cart_doc["cart_id"], [])
         items = []
-        if item_ids:
-            item_docs = await items_collection.find(
-                {"user_id": user_id, "item_id": {"$in": item_ids}}
-            ).to_list(length=None)
-            # Preserve cart order if possible
-            doc_by_id = {d.get("item_id"): d for d in item_docs}
-            for iid in item_ids:
-                if iid in doc_by_id:
-                    items.append(doc_by_id[iid])
+        # Preserve cart order
+        for iid in item_ids:
+            if iid in items_lookup:
+                items.append(items_lookup[iid])
 
         carts.append(
             Cart(
@@ -107,14 +120,29 @@ async def delete_cart(user_id: str, cart_id: str) -> dict:
 
     # Remove cart_id from items.selected_cart_ids, and delete orphan items
     if item_ids:
-        for item_id in item_ids:
-            await items_collection.update_one(
-                {"user_id": user_id, "item_id": item_id},
-                {"$pull": {"selected_cart_ids": cart_id}},
+        # Bulk update: remove cart_id from all items' selected_cart_ids
+        await items_collection.update_many(
+            {"user_id": user_id, "item_id": {"$in": item_ids}},
+            {"$pull": {"selected_cart_ids": cart_id}},
+        )
+        
+        # Batch query all updated items to check for orphans
+        updated_items = await items_collection.find(
+            {"user_id": user_id, "item_id": {"$in": item_ids}}
+        ).to_list(length=None)
+        
+        # Find orphan items (items with empty selected_cart_ids)
+        orphan_item_ids = [
+            item_doc.get("item_id")
+            for item_doc in updated_items
+            if not (item_doc.get("selected_cart_ids") or [])
+        ]
+        
+        # Bulk delete orphan items
+        if orphan_item_ids:
+            await items_collection.delete_many(
+                {"user_id": user_id, "item_id": {"$in": orphan_item_ids}}
             )
-            updated_item = await items_collection.find_one({"user_id": user_id, "item_id": item_id})
-            if updated_item and not (updated_item.get("selected_cart_ids") or []):
-                await items_collection.delete_one({"user_id": user_id, "item_id": item_id})
 
     return {"message": "Cart deleted successfully!"}
 

@@ -216,7 +216,21 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
 
         def find(self, query: dict):
             if self.name == "carts":
-                docs = [d for d in db_state["carts"].values() if _match_query(d, query)]
+                # support $in on cart_id
+                docs = []
+                for d in db_state["carts"].values():
+                    ok = True
+                    for k, v in query.items():
+                        if isinstance(v, dict) and "$in" in v:
+                            if d.get(k) not in v["$in"]:
+                                ok = False
+                                break
+                        else:
+                            if d.get(k) != v:
+                                ok = False
+                                break
+                    if ok:
+                        docs.append(d)
                 return MockCursor(docs)
             if self.name == "items":
                 # support $in on item_id
@@ -234,6 +248,9 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
                                 break
                     if ok:
                         docs.append(d)
+                return MockCursor(docs)
+            if self.name == "users":
+                docs = [d for d in db_state["users"].values() if _match_query(d, query)]
                 return MockCursor(docs)
             return MockCursor([])
 
@@ -297,6 +314,142 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
 
         async def create_index(self, *args, **kwargs):
             return "mock_index"
+        
+        async def find_one_and_update(self, filter_query: dict, update_op: dict, return_document=None, upsert: bool = False):
+            """Mock find_one_and_update operation."""
+            store = db_state[self.name]
+            target_key = None
+            target_doc = None
+            
+            # Find the document
+            if self.name == "users":
+                for k, d in store.items():
+                    if _match_query(d, filter_query):
+                        target_key, target_doc = k, d
+                        break
+            else:
+                # carts/items keyed by id field
+                for k, d in store.items():
+                    if _match_query(d, filter_query):
+                        target_key, target_doc = k, d
+                        break
+            
+            # If not found and upsert is True, create it
+            if target_doc is None:
+                if upsert:
+                    if self.name == "users":
+                        target_doc = {"user_id": filter_query.get("user_id")}
+                        target_key = target_doc["user_id"]
+                    elif self.name == "carts":
+                        target_doc = {"cart_id": filter_query.get("cart_id"), "user_id": filter_query.get("user_id")}
+                        target_key = target_doc["cart_id"]
+                    elif self.name == "items":
+                        target_doc = {"item_id": filter_query.get("item_id"), "user_id": filter_query.get("user_id")}
+                        target_key = target_doc["item_id"]
+                    target_doc.update(update_op.get("$set", {}))
+                    store[target_key] = target_doc
+                else:
+                    return None
+            
+            # Save original for BEFORE return_document
+            original_doc = copy.deepcopy(target_doc) if target_doc else None
+            
+            # Apply the update
+            if target_doc:
+                modified = _apply_update(target_doc, update_op)
+                store[target_key] = target_doc
+            
+            # Return document based on return_document parameter
+            # ReturnDocument.AFTER means return the document after update
+            from pymongo import ReturnDocument
+            if return_document == ReturnDocument.AFTER:
+                return copy.deepcopy(target_doc) if target_doc else None
+            elif return_document == ReturnDocument.BEFORE:
+                return original_doc
+            else:
+                # Default: return document after update (MongoDB default)
+                return copy.deepcopy(target_doc) if target_doc else None
+        
+        async def update_many(self, filter_query: dict, update_op: dict):
+            """Mock update_many operation."""
+            store = db_state[self.name]
+            modified_count = 0
+            matched_count = 0
+            
+            # Find all matching documents
+            matching_docs = []
+            for k, d in store.items():
+                if _match_query(d, filter_query):
+                    matching_docs.append((k, d))
+                    matched_count += 1
+            
+            # Apply update to all matching documents
+            for k, d in matching_docs:
+                modified = _apply_update(d, update_op)
+                store[k] = d
+                if modified:
+                    modified_count += 1
+            
+            return MockUpdateResult(modified_count=modified_count, matched_count=matched_count)
+        
+        async def delete_many(self, filter_query: dict):
+            """Mock delete_many operation."""
+            store = db_state[self.name]
+            delete_keys = []
+            for k, d in store.items():
+                if _match_query(d, filter_query):
+                    delete_keys.append(k)
+            
+            for k in delete_keys:
+                del store[k]
+            return MockDeleteResult(deleted_count=len(delete_keys))
+        
+        async def bulk_write(self, operations, ordered=True):
+            """Mock bulk_write operation."""
+            from pymongo.operations import UpdateOne, UpdateMany, DeleteOne, InsertOne
+            
+            inserted_count = 0
+            matched_count = 0
+            modified_count = 0
+            deleted_count = 0
+            upserted_count = 0
+            
+            for op in operations:
+                if isinstance(op, UpdateOne):
+                    filter_query = op._filter
+                    update_op = op._doc
+                    upsert = getattr(op, '_upsert', False)
+                    result = await self.update_one(filter_query, update_op, upsert=upsert)
+                    matched_count += result.matched_count
+                    modified_count += result.modified_count
+                    if hasattr(result, 'upserted_id') and result.upserted_id:
+                        upserted_count += 1
+                elif isinstance(op, UpdateMany):
+                    filter_query = op._filter
+                    update_op = op._doc
+                    result = await self.update_many(filter_query, update_op)
+                    matched_count += result.matched_count
+                    modified_count += result.modified_count
+                elif isinstance(op, DeleteOne):
+                    result = await self.delete_one(op._filter)
+                    deleted_count += result.deleted_count
+                elif isinstance(op, InsertOne):
+                    result = await self.insert_one(op._doc)
+                    inserted_count += 1
+            
+            # Return a mock bulk write result
+            class MockBulkWriteResult:
+                def __init__(self, **kwargs):
+                    for k, v in kwargs.items():
+                        setattr(self, k, v)
+            
+            return MockBulkWriteResult(
+                inserted_count=inserted_count,
+                matched_count=matched_count,
+                modified_count=modified_count,
+                deleted_count=deleted_count,
+                upserted_count=upserted_count
+            )
     
     async def mock_find_one(query: dict, projection=None):
         email = query.get("email")
