@@ -6,12 +6,13 @@ from app.routers.cart_routes import router as cart_router
 from app.routers.item_routes import router as item_router
 from app.routers.user_routes import router as user_router
 from app.routers.extraction_routes import router as extraction_router
+from app.routers.feedback_routes import router as feedback_router
 from app.config.settings import settings
 from app.services.clip_verifier import check_clip_model_status
 from app.services.bert_verifier import MODEL_AVAILABLE
 from app.services.vision_verifier import check_openai_vision_availability
 from app.functions.database import client
-from app.functions.database import users_collection, carts_collection, items_collection
+from app.functions.database import users_collection, carts_collection, items_collection, feedback_collection
 from datetime import datetime
 import httpx
 
@@ -32,6 +33,8 @@ async def ensure_mongo_indexes() -> None:
         await items_collection.create_index([("user_id", 1), ("item_id", 1)], unique=True)
         # Optional but recommended to prevent duplicate URLs per user (only works when url is non-null)
         await items_collection.create_index([("user_id", 1), ("url", 1)], unique=True, sparse=True)
+        await feedback_collection.create_index("feedback_id", unique=True)
+        await feedback_collection.create_index("email")
     except Exception:
         # Index creation should never prevent the app from starting
         return
@@ -173,3 +176,4 @@ app.include_router(cart_router, prefix="/carts", tags=["Cart"])
 app.include_router(item_router, prefix="/carts", tags=["Item"])
 app.include_router(user_router, prefix="/users", tags=["User"])
 app.include_router(extraction_router, prefix="/extract", tags=["Extraction Processing"])
+app.include_router(feedback_router, prefix="/feedback", tags=["Feedback"])

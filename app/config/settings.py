@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     GOOGLE_SEARCH_API: str = ""
     CSE_ID: str = ""
+    GOOGLE_SHEETS_SCRIPT_URL: str = ""
     
     # ML Models
     BERT_MODEL_PATH: str = ""
