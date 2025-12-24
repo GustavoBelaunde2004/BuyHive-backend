@@ -14,6 +14,7 @@ BuyHive-backend is a FastAPI-based backend for an e-commerce browser extension. 
 - **Product Extraction**: Extract product information and images from URLs using AI models.
 - **Image Verification**: Verify product images using CLIP and OpenAI.
 - **URL Classification**: Classify e-commerce URLs using BERT.
+- **Feedback Submission**: Submit bug reports and feature requests (saves to MongoDB and Google Sheets).
 
 ## Tech Stack
 
@@ -59,8 +60,9 @@ BuyHive-backend is a FastAPI-based backend for an e-commerce browser extension. 
    - `GROQ_API_KEY` - Groq API key
    - `OPENAI_API_KEY` - OpenAI API key
    
-   **Optional** (for email functionality):
-   - AWS SES credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `SES_FROM_EMAIL`) - Only needed if you want to enable email features like cart sharing
+   **Optional**:
+   - AWS SES credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `SES_FROM_EMAIL`) - For email features like cart sharing
+   - `GOOGLE_SHEETS_SCRIPT_URL` - Google Apps Script URL for posting feedback to Google Sheets
 
 ## Running the Server
 
