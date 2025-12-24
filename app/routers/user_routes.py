@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from app.functions.user import send_email_gmail
-from app.functions.cart import get_carts
+from app.functions.item import retrieve_cart_items
+from app.functions.database import carts_collection
 from app.functions.base import ShareCartRequest
 from app.auth.dependencies import get_current_user
 from app.models.user import User
@@ -21,15 +22,23 @@ async def share_cart(
         recipient_email = payload.recipient_email
         cart_id = payload.cart_id
 
-        # Retrieve the user's carts
-        user_carts = await get_carts(current_user.user_id)
-        cart_to_share = next((cart for cart in user_carts if cart.cart_id == cart_id), None)
-
-        if not cart_to_share:
+        # Get cart document first to get cart name and verify it exists
+        cart_doc = await carts_collection.find_one({"user_id": current_user.user_id, "cart_id": cart_id})
+        if not cart_doc:
             raise HTTPException(status_code=404, detail="Cart not found")
+        
+        cart_name = cart_doc.get("cart_name", "Cart")
 
-        cart_name = cart_to_share.cart_name
-        cart_items = cart_to_share.items
+        # Retrieve cart items (cart already verified to exist)
+        try:
+            cart_items = await retrieve_cart_items(current_user.user_id, cart_id)
+        except ValueError as e:
+            # retrieve_cart_items raises ValueError if cart not found
+            # This can happen in edge cases or test environments
+            if "not found" in str(e).lower():
+                raise HTTPException(status_code=404, detail="Cart not found")
+            # Re-raise other ValueErrors as 500
+            raise HTTPException(status_code=500, detail=str(e))
 
         # Send email using AWS SES (migrated from Gmail SMTP in Phase 3)
         result = await send_email_gmail(

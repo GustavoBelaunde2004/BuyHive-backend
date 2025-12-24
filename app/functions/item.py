@@ -3,13 +3,12 @@ from uuid import uuid4
 from typing import Dict, Any, List
 from .database import carts_collection, items_collection
 from app.models.item import ItemInDB
-from app.models.cart import Cart
 
 # GET items from cart
-async def retrieve_cart_items(user_id: str, cart_id: str) -> Cart:
+async def retrieve_cart_items(user_id: str, cart_id: str) -> List[ItemInDB]:
     """
     Retrieve all items from a specific cart for a given user.
-    Returns Cart model with ItemInDB objects.
+    Returns list of ItemInDB objects.
     
     Raises:
         ValueError: If cart is not found
@@ -29,13 +28,7 @@ async def retrieve_cart_items(user_id: str, cart_id: str) -> Cart:
             if iid in doc_by_id:
                 items.append(ItemInDB.from_mongo(doc_by_id[iid]))
 
-    return Cart(
-        cart_id=cart_doc["cart_id"],
-        cart_name=cart_doc["cart_name"],
-        item_count=cart_doc.get("item_count", 0),
-        created_at=cart_doc.get("created_at", datetime.utcnow().isoformat()),
-        items=items,
-    )
+    return items
 
 # PUT (Edits notes for all appearances of same item in every cart per user)
 async def update_item_note(user_id: str, item_id: str, new_note: str) -> ItemInDB:

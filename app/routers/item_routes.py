@@ -17,8 +17,8 @@ async def get_cart_items(
     Retrieve all items from a specific cart.
     """
     try:
-        response = await retrieve_cart_items(current_user.user_id, cart_id)
-        return response
+        items = await retrieve_cart_items(current_user.user_id, cart_id)
+        return {"items": items}
     except ValueError as e:
         # Handle not found cases with 404
         if "not found" in str(e).lower():

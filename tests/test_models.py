@@ -226,14 +226,14 @@ class TestItemInDB:
 class TestCart:
     """Test suite for Cart model."""
     
-    def test_from_mongo_empty_items(self):
-        """Test converting MongoDB document with empty items list."""
+    def test_from_mongo_empty_item_ids(self):
+        """Test converting MongoDB document with empty item_ids list."""
         doc = {
             "cart_id": "test-cart-id",
             "cart_name": "Test Cart",
             "item_count": 0,
             "created_at": "2024-01-01T00:00:00",
-            "items": []
+            "item_ids": []
         }
         
         cart = Cart.from_mongo(doc)
@@ -242,53 +242,35 @@ class TestCart:
         assert cart.cart_name == "Test Cart"
         assert cart.item_count == 0
         assert cart.created_at == "2024-01-01T00:00:00"
-        assert isinstance(cart.items, list)
-        assert len(cart.items) == 0
+        assert isinstance(cart.item_ids, list)
+        assert len(cart.item_ids) == 0
     
-    def test_from_mongo_with_items(self):
-        """Test converting MongoDB document with nested items."""
+    def test_from_mongo_with_item_ids(self):
+        """Test converting MongoDB document with item_ids."""
         doc = {
             "cart_id": "test-cart-id",
             "cart_name": "Test Cart",
             "item_count": 2,
             "created_at": "2024-01-01T00:00:00",
-            "items": [
-                {
-                    "item_id": "item-1",
-                    "name": "Product 1",
-                    "price": "99.99",
-                    "added_at": "2024-01-01T00:00:00"
-                },
-                {
-                    "item_id": "item-2",
-                    "name": "Product 2",
-                    "price": "149.99",
-                    "image": "https://example.com/image2.jpg",
-                    "added_at": "2024-01-01T01:00:00"
-                }
-            ]
+            "item_ids": ["item-1", "item-2"]
         }
         
         cart = Cart.from_mongo(doc)
         
         assert cart.cart_id == "test-cart-id"
         assert cart.item_count == 2
-        assert len(cart.items) == 2
-        
-        # Check items are ItemInDB objects
-        assert isinstance(cart.items[0], ItemInDB)
-        assert isinstance(cart.items[1], ItemInDB)
-        assert cart.items[0].item_id == "item-1"
-        assert cart.items[1].item_id == "item-2"
+        assert len(cart.item_ids) == 2
+        assert cart.item_ids[0] == "item-1"
+        assert cart.item_ids[1] == "item-2"
     
-    def test_to_mongo_dict_empty_items(self):
-        """Test converting Cart to MongoDB dict with empty items."""
+    def test_to_mongo_dict_empty_item_ids(self):
+        """Test converting Cart to MongoDB dict with empty item_ids."""
         cart = Cart(
             cart_id="test-cart-id",
             cart_name="Test Cart",
             item_count=0,
             created_at="2024-01-01T00:00:00",
-            items=[]
+            item_ids=[]
         )
         
         mongo_dict = cart.to_mongo_dict()
@@ -298,58 +280,34 @@ class TestCart:
         assert mongo_dict["cart_name"] == "Test Cart"
         assert mongo_dict["item_count"] == 0
         assert mongo_dict["created_at"] == "2024-01-01T00:00:00"
-        assert isinstance(mongo_dict["items"], list)
-        assert len(mongo_dict["items"]) == 0
+        assert isinstance(mongo_dict["item_ids"], list)
+        assert len(mongo_dict["item_ids"]) == 0
     
-    def test_to_mongo_dict_with_items(self):
-        """Test converting Cart to MongoDB dict with nested items."""
-        items = [
-            ItemInDB(
-                item_id="item-1",
-                name="Product 1",
-                price="99.99",
-                added_at="2024-01-01T00:00:00"
-            ),
-            ItemInDB(
-                item_id="item-2",
-                name="Product 2",
-                price="149.99",
-                image="https://example.com/image2.jpg",
-                added_at="2024-01-01T01:00:00"
-            )
-        ]
-        
+    def test_to_mongo_dict_with_item_ids(self):
+        """Test converting Cart to MongoDB dict with item_ids."""
         cart = Cart(
             cart_id="test-cart-id",
             cart_name="Test Cart",
             item_count=2,
             created_at="2024-01-01T00:00:00",
-            items=items
+            item_ids=["item-1", "item-2"]
         )
         
         mongo_dict = cart.to_mongo_dict()
         
-        assert len(mongo_dict["items"]) == 2
-        assert isinstance(mongo_dict["items"][0], dict)
-        assert isinstance(mongo_dict["items"][1], dict)
-        assert mongo_dict["items"][0]["item_id"] == "item-1"
-        assert mongo_dict["items"][1]["item_id"] == "item-2"
+        assert len(mongo_dict["item_ids"]) == 2
+        assert isinstance(mongo_dict["item_ids"], list)
+        assert mongo_dict["item_ids"][0] == "item-1"
+        assert mongo_dict["item_ids"][1] == "item-2"
     
-    def test_round_trip_conversion_with_items(self):
-        """Test that from_mongo -> to_mongo_dict maintains nested items."""
+    def test_round_trip_conversion_with_item_ids(self):
+        """Test that from_mongo -> to_mongo_dict maintains item_ids."""
         original_doc = {
             "cart_id": "test-cart-id",
             "cart_name": "Test Cart",
-            "item_count": 1,
+            "item_count": 2,
             "created_at": "2024-01-01T00:00:00",
-            "items": [
-                {
-                    "item_id": "item-1",
-                    "name": "Product 1",
-                    "price": "99.99",
-                    "added_at": "2024-01-01T00:00:00"
-                }
-            ]
+            "item_ids": ["item-1", "item-2"]
         }
         
         cart = Cart.from_mongo(original_doc)
@@ -358,31 +316,24 @@ class TestCart:
         assert mongo_dict["cart_id"] == original_doc["cart_id"]
         assert mongo_dict["cart_name"] == original_doc["cart_name"]
         assert mongo_dict["item_count"] == original_doc["item_count"]
-        assert len(mongo_dict["items"]) == 1
-        assert mongo_dict["items"][0]["item_id"] == "item-1"
-        assert mongo_dict["items"][0]["name"] == "Product 1"
+        assert len(mongo_dict["item_ids"]) == 2
+        assert mongo_dict["item_ids"][0] == "item-1"
+        assert mongo_dict["item_ids"][1] == "item-2"
     
     def test_cart_model_instantiation(self):
         """Test Cart model can be instantiated with all fields."""
-        items = [
-            ItemInDB(
-                item_id="item-1",
-                name="Product 1",
-                price="99.99",
-                added_at="2024-01-01T00:00:00"
-            )
-        ]
-        
         cart = Cart(
             cart_id="test-cart-id",
             cart_name="Test Cart",
-            item_count=1,
+            item_count=2,
             created_at="2024-01-01T00:00:00",
-            items=items
+            item_ids=["item-1", "item-2"]
         )
         
         assert cart.cart_id == "test-cart-id"
         assert cart.cart_name == "Test Cart"
-        assert cart.item_count == 1
-        assert len(cart.items) == 1
+        assert cart.item_count == 2
+        assert len(cart.item_ids) == 2
+        assert cart.item_ids[0] == "item-1"
+        assert cart.item_ids[1] == "item-2"
 

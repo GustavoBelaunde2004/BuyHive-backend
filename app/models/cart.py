@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from app.models.item import ItemInDB
 
 
 class Cart(BaseModel):
@@ -9,7 +8,7 @@ class Cart(BaseModel):
     cart_name: str
     item_count: int = 0
     created_at: str  # ISO datetime string
-    items: List[ItemInDB] = []
+    item_ids: List[str] = []
     
     @classmethod
     def from_mongo(cls, doc: Dict[str, Any]) -> "Cart":
@@ -22,13 +21,7 @@ class Cart(BaseModel):
         Returns:
             Cart instance
         """
-        # Convert items list to ItemInDB objects
-        items = []
-        for item_doc in doc.get("items", []):
-            items.append(ItemInDB.from_mongo(item_doc))
-        
         doc_copy = doc.copy()
-        doc_copy["items"] = items
         return cls(**doc_copy)
     
     def to_mongo_dict(self) -> Dict[str, Any]:
@@ -38,8 +31,5 @@ class Cart(BaseModel):
         Returns:
             Dictionary suitable for MongoDB storage
         """
-        result = self.model_dump(exclude_none=False)
-        # Convert ItemInDB objects to dicts
-        result["items"] = [item.to_mongo_dict() for item in self.items]
-        return result
+        return self.model_dump(exclude_none=False)
 

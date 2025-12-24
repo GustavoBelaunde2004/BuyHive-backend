@@ -57,25 +57,13 @@ async def get_carts(user_id: str) -> List[Cart]:
     carts: List[Cart] = []
 
     for cart_doc in cart_docs:
-        item_ids = cart_doc.get("item_ids", [])
-        items = []
-        if item_ids:
-            item_docs = await items_collection.find(
-                {"user_id": user_id, "item_id": {"$in": item_ids}}
-            ).to_list(length=None)
-            # Preserve cart order if possible
-            doc_by_id = {d.get("item_id"): d for d in item_docs}
-            for iid in item_ids:
-                if iid in doc_by_id:
-                    items.append(doc_by_id[iid])
-
         carts.append(
             Cart(
                 cart_id=cart_doc["cart_id"],
                 cart_name=cart_doc["cart_name"],
                 item_count=cart_doc.get("item_count", 0),
                 created_at=cart_doc.get("created_at", datetime.utcnow().isoformat()),
-                items=items,
+                item_ids=cart_doc.get("item_ids", []),
             )
         )
 
