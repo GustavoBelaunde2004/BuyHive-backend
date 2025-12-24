@@ -35,16 +35,10 @@ BuyHive-backend is the core API service for BuyHive, a browser extension that he
 
 ## Deployment
 
-The application is deployed on **Railway** using Docker. See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
-
+The application is deployed on **Railway** using Docker. 
 **Note**: Deployment is handled entirely by Railway - no AWS infrastructure is required for deployment. AWS is only used optionally for email service (SES).
 
 ## Documentation
-
-- [DEPLOYMENT.md](./DEPLOYMENT.md) - Deployment guide
-- [RUNBOOK.md](./RUNBOOK.md) - Operations guide
-- [TESTING.md](./TESTING.md) - Testing guide
-- [AUTH0_SETUP.md](./AUTH0_SETUP.md) - Auth0 configuration guide
 
 **API Documentation**: Interactive API documentation is available when the server is running:
 - Swagger UI: `/docs`
