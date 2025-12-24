@@ -32,7 +32,13 @@ async def share_cart(
         cart_items = cart_to_share.items
 
         # Send email using AWS SES (migrated from Gmail SMTP in Phase 3)
-        result = await send_email_gmail(recipient_email, cart_name, cart_items)
+        result = await send_email_gmail(
+            recipient_email, 
+            cart_name, 
+            cart_items,
+            sender_name=current_user.name,
+            sender_email=current_user.email
+        )
         
         # Check if email sending failed
         if "error" in result:
