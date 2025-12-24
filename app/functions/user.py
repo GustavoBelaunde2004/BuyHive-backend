@@ -4,73 +4,99 @@ from .database import users_collection
 from app.models.item import ItemInDB
 from app.services.email_service import send_email_ses
 
-async def send_email_gmail(recipient_email: str, cart_name: str, cart_items: List[ItemInDB]) -> dict:
-    """Send a professional email with optimized spacing (no extra <br> tags)."""
-    subject = f"Your Shared Cart: {cart_name}"
+async def send_email_gmail(
+    recipient_email: str, 
+    cart_name: str, 
+    cart_items: List[ItemInDB],
+    sender_name: str = "A BuyHive user",
+    sender_email: str = ""
+) -> dict:
+    """Send a minimal, professional email with cart details and sender information."""
+    subject = f"{sender_name} shared a cart with you: {cart_name}"
 
-    # BuyHive banner with explicit padding and dark mode fix
-    banner_color_light = "hsl(42, 95%, 66%)"  # Default color
-    banner_color_dark = "hsl(42, 100%, 75%)"  # Brighter for dark mode
-
-    header_html = f"""
-    <div class="banner" style="background-color: {banner_color_light}; padding: 12px 20px; text-align: center; margin: 0;">
-        <h1 style="color: white; font-size: 24px; margin: 0; padding: 0; line-height: 1.2; display: block;">BuyHive</h1>
-    </div>
-    """
-
-    # Force the correct color in dark mode
-    header_html += f"""
-    <div style="display:none; color-scheme:dark; background-color: {banner_color_dark} !important;">
-        <h1 style="color: white !important; margin: 0; padding: 0; line-height: 1.2; display: block;">BuyHive 🛒</h1>
-    </div>
-    """
-
-    # Cart name section
-    cart_html = f"""
-    <div style="padding: 5px 5px; text-align: center; margin: 0;">
-        <h2 style="color: #333; font-size: 20px; margin: 0; padding: 0; line-height: 1.2; display: block;">Your Shared Cart: <strong>{cart_name}</strong></h2>
-        <p style="color: #666; font-size: 14px; margin: 0; padding: 0; line-height: 1.2; display: block;">Here are the items you’ve added:</p>
-    </div>
-    """
-
-    # Product listing with notes added
-    # Product listing with clickable images
+    # Generate items HTML separately to avoid f-string syntax issues
     items_html = "".join([
-    f"""
-    <div style="display: flex; align-items: center; padding: 10px 15px; border-bottom: 1px solid #ddd; margin: 0;">
-        <a href="{item.url or '#'}" target="_blank" style="text-decoration: none;">
-            <img src="{item.image or ''}" alt="{item.name}" style="width: 70px; height: 70px; border-radius: 8px; margin-right: 12px;">
-        </a>
-        <div>
-            <h3 style="margin: 0; padding: 0; color: #333; font-size: 16px; line-height: 1.2; display: block;">
-                <a href="{item.url or '#'}" target="_blank" style="text-decoration: none; color: inherit;">{item.name}</a>
-            </h3>
-            <p style="margin: 3px 0 0 0; padding: 0; font-size: 14px; color: #666; line-height: 1.2; display: block;">{item.price}</p>
-            {"<p style='font-size: 13px; color: #888; font-style: italic; margin: 3px 0 0 0; padding: 0; line-height: 1.2; display: block;'>Note: " + item.notes + "</p>" if item.notes else ""}
-        </div>
-    </div>
-    """ for item in cart_items
+        f"""
+                                        <tr>
+                                            <td style="padding: 16px 0; border-bottom: 1px solid #e5e5e5;">
+                                                <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                                    <tr>
+                                                        <td style="width: 80px; padding-right: 16px; vertical-align: top;">
+                                                            <a href="{item.url or '#'}" target="_blank" style="text-decoration: none;">
+                                                                <img src="{item.image or 'https://via.placeholder.com/80?text=No+Image'}" 
+                                                                     alt="{item.name}" 
+                                                                     style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; display: block;">
+                                                            </a>
+                                                        </td>
+                                                        <td style="vertical-align: top;">
+                                                            <a href="{item.url or '#'}" target="_blank" style="text-decoration: none; color: inherit;">
+                                                                <h3 style="margin: 0 0 4px; font-size: 16px; font-weight: 500; color: #1a1a1a; line-height: 1.4;">
+                                                                    {item.name}
+                                                                </h3>
+                                                            </a>
+                                                            <p style="margin: 0 0 4px; font-size: 15px; font-weight: 600; color: #1a1a1a;">
+                                                                {item.price}
+                                                            </p>
+                                                            {f'<p style="margin: 4px 0 0; font-size: 13px; color: #888; font-style: italic; line-height: 1.4;">Note: {item.notes}</p>' if item.notes else ''}
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                        """ for item in cart_items
     ])
 
-
-    # Footer with better spacing
-    footer_html = """
-    <div style="padding: 5px; text-align: center; color: #999; font-size: 12px; margin: 0;">
-        <p style="margin: 0; padding: 0; line-height: 1.2; display: block;">Thank you for using BuyHive! 🐝</p>
-        <p style="font-size: 10px; margin: 5px 0 0 0; padding: 0; line-height: 1.2; display: block;">Need help? <a href="#" style="color: #555; text-decoration: none;">Contact Support</a></p>
-    </div>
-    """
-
-    # Combine all sections
+    # Minimal, professional email design
     body_html = f"""
+    <!DOCTYPE html>
     <html>
-    <body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f9f9f9;">
-        {header_html}
-        <div style="background-color: white; max-width: 600px; margin: 5px auto; border-radius: 10px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); overflow: hidden;">
-            {cart_html}
-            <div style="padding: 5px; margin: 0;">{items_html}</div>
-        </div>
-        {footer_html}
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f5f5f5;">
+            <tr>
+                <td style="padding: 40px 20px;">
+                    <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <!-- Header -->
+                        <tr>
+                            <td style="padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #e5e5e5;">
+                                <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #1a1a1a;">BuyHive</h1>
+                            </td>
+                        </tr>
+                        
+                        <!-- Sender Info -->
+                        <tr>
+                            <td style="padding: 24px 32px 16px;">
+                                <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5;">
+                                    <strong style="color: #1a1a1a;">{sender_name}{f' ({sender_email})' if sender_email else ''}</strong> shared a cart with you:
+                                </p>
+                                <h2 style="margin: 8px 0 0; font-size: 20px; font-weight: 600; color: #1a1a1a;">{cart_name}</h2>
+                            </td>
+                        </tr>
+                        
+                        <!-- Items List -->
+                        <tr>
+                            <td style="padding: 0 32px 24px;">
+                                <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                    {items_html}
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <!-- Footer -->
+                        <tr>
+                            <td style="padding: 24px 32px; background-color: #f9f9f9; border-top: 1px solid #e5e5e5; border-radius: 0 0 8px 8px; text-align: center;">
+                                <p style="margin: 0; font-size: 12px; color: #999; line-height: 1.5;">
+                                    Sent via BuyHive 🐝
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
     </body>
     </html>
     """
