@@ -6,7 +6,7 @@ from app.utils.rate_limiter import rate_limit
 router = APIRouter()
 
 @router.post("/submit")
-@rate_limit("10/minute")
+@rate_limit("5/hour")
 async def submit_feedback(
     request: Request,
     payload: FeedbackFormRequest
