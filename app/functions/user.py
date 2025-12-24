@@ -21,11 +21,11 @@ async def send_email_gmail(
                                             <td style="padding: 16px 0; border-bottom: 1px solid #e5e5e5;">
                                                 <table role="presentation" style="width: 100%; border-collapse: collapse;">
                                                     <tr>
-                                                        <td style="width: 80px; padding-right: 16px; vertical-align: top;">
+                                                        <td style="width: 100px; padding-right: 16px; vertical-align: top;">
                                                             <a href="{item.url or '#'}" target="_blank" style="text-decoration: none;">
-                                                                <img src="{item.image or 'https://via.placeholder.com/80?text=No+Image'}" 
+                                                                <img src="{item.image or 'https://via.placeholder.com/100?text=No+Image'}" 
                                                                      alt="{item.name}" 
-                                                                     style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; display: block;">
+                                                                     style="width: 100px; height: 100px; object-fit: cover; border-radius: 4px; display: block;">
                                                             </a>
                                                         </td>
                                                         <td style="vertical-align: top;">
