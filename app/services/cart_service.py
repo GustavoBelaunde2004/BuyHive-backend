@@ -29,7 +29,7 @@ class CartService:
         self.user_repo = user_repo
         self.item_repo = item_repo
     
-    async def create_cart(self, user_id: str, cart_name: str) -> Dict[str, str]:
+    async def create_cart(self, user_id: str, cart_name: str) -> Cart:
         """
         Create a new cart for a user.
         
@@ -38,7 +38,7 @@ class CartService:
             cart_name: Cart name
             
         Returns:
-            Dictionary with success message and cart_id
+            Cart object with the created cart data
             
         Raises:
             ValueError: If user not found
@@ -66,7 +66,14 @@ class CartService:
         await self.cart_repo.create(cart_doc)
         await self.user_repo.add_cart_id(user_id, cart_id, now)
         
-        return {"message": "Cart created successfully!", "cart_id": cart_id}
+        # Return Cart object (no extra DB query needed - we have all the data)
+        return Cart(
+            cart_id=cart_id,
+            cart_name=cart_name,
+            item_count=0,
+            created_at=now,
+            item_ids=[]
+        )
     
     async def get_user_carts(self, user_id: str) -> List[Cart]:
         """

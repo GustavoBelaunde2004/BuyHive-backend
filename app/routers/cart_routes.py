@@ -7,7 +7,7 @@ from app.utils.rate_limiter import rate_limit
 
 router = APIRouter()
 
-@router.post("", response_model=dict)
+@router.post("", response_model=CartResponse)
 @rate_limit("60/minute")
 async def add_cart(
     request: Request,
