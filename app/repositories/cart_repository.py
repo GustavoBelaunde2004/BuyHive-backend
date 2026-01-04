@@ -26,15 +26,18 @@ class CartRepository(BaseRepository):
     
     async def find_by_user(self, user_id: str) -> List[Dict[str, Any]]:
         """
-        Find all carts for a user.
+        Find all carts for a user, sorted by creation date (oldest first).
         
         Args:
             user_id: User ID
             
         Returns:
-            List of cart documents
+            List of cart documents sorted by created_at ascending
         """
-        return await self.find_many({"user_id": user_id})
+        return await self.find_many(
+            {"user_id": user_id},
+            sort=[("created_at", 1)]
+        )
     
     async def create(self, cart_data: Dict[str, Any]) -> None:
         """

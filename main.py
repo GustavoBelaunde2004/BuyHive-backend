@@ -31,6 +31,7 @@ async def ensure_mongo_indexes() -> None:
     try:
         await users_collection.create_index("user_id", unique=True)
         await carts_collection.create_index([("user_id", 1), ("cart_id", 1)], unique=True)
+        await carts_collection.create_index([("user_id", 1), ("created_at", 1)])
         await items_collection.create_index([("user_id", 1), ("item_id", 1)], unique=True)
         # Optional but recommended to prevent duplicate URLs per user (only works when url is non-null)
         await items_collection.create_index([("user_id", 1), ("url", 1)], unique=True, sparse=True)

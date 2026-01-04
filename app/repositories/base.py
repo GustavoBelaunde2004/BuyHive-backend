@@ -28,17 +28,25 @@ class BaseRepository(ABC):
         """
         return await self.collection.find_one(filter)
     
-    async def find_many(self, filter: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def find_many(
+        self, 
+        filter: Dict[str, Any], 
+        sort: Optional[List[tuple]] = None
+    ) -> List[Dict[str, Any]]:
         """
         Find multiple documents.
         
         Args:
             filter: MongoDB filter dictionary
-            
+            sort: Optional list of (field, direction) tuples for sorting
+                  e.g., [("created_at", -1)] for descending (newest first)
+        
         Returns:
             List of document dictionaries
         """
         cursor = self.collection.find(filter)
+        if sort:
+            cursor = cursor.sort(sort)
         return await cursor.to_list(length=None)
     
     async def insert_one(self, document: Dict[str, Any]) -> str:
