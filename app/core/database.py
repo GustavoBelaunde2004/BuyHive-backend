@@ -15,9 +15,10 @@ client = AsyncIOMotorClient(
 )
 db = client["buyHive"]
 
-# Collections (3-collection model)
+# Collections (3-collection model, 2-extra-collections)
 users_collection = db["users"]
 carts_collection = db["carts"]
 items_collection = db["items"]
 feedback_collection = db["feedback"]
+failed_extraction_collection = db["failed_extractions"]
 

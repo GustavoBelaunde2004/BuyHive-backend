@@ -7,12 +7,13 @@ from app.routers.item_routes import router as item_router
 from app.routers.user_routes import router as user_router
 from app.routers.extraction_routes import router as extraction_router
 from app.routers.feedback_routes import router as feedback_router
+from app.routers.failed_extraction_routes import router as failed_extraction_router
 from app.core.config import settings
 from app.services.ai.clip_verifier import check_clip_model_status
 from app.services.ai.bert_verifier import MODEL_AVAILABLE
 from app.services.ai.vision_verifier import check_openai_vision_availability
 from app.core.database import client
-from app.core.database import users_collection, carts_collection, items_collection, feedback_collection
+from app.core.database import users_collection, carts_collection, items_collection, feedback_collection, failed_extraction_collection
 from datetime import datetime
 import httpx
 
@@ -35,6 +36,10 @@ async def ensure_mongo_indexes() -> None:
         await items_collection.create_index([("user_id", 1), ("url", 1)], unique=True, sparse=True)
         await feedback_collection.create_index("feedback_id", unique=True)
         await feedback_collection.create_index("email")
+        await failed_extraction_collection.create_index("extraction_id", unique=True)
+        await failed_extraction_collection.create_index("domain")
+        await failed_extraction_collection.create_index("user_id")
+        await failed_extraction_collection.create_index("timestamp")
     except Exception:
         # Index creation should never prevent the app from starting
         return
@@ -177,3 +182,4 @@ app.include_router(item_router, prefix="/carts", tags=["Item"])
 app.include_router(user_router, prefix="/users", tags=["User"])
 app.include_router(extraction_router, prefix="/extract", tags=["Extraction Processing"])
 app.include_router(feedback_router, prefix="/feedback", tags=["Feedback"])
+app.include_router(failed_extraction_router, prefix="/failed-extraction", tags=["Failed Extraction"])
