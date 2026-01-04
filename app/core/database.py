@@ -1,5 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient
-from app.config.settings import settings
+from app.core.config import settings
 
 # Initialize MongoDB client with connection pooling
 # maxPoolSize: Maximum number of connections in the pool (default: 100)
@@ -20,3 +20,4 @@ users_collection = db["users"]
 carts_collection = db["carts"]
 items_collection = db["items"]
 feedback_collection = db["feedback"]
+

@@ -12,7 +12,7 @@ from jose import jwt
 from datetime import datetime, timedelta
 
 from main import app
-from app.config.settings import settings
+from app.core.config import settings
 
 
 # Test user data
@@ -60,7 +60,9 @@ def mock_verify_token():
             "exp": int((datetime.utcnow() + timedelta(hours=24)).timestamp()),
         }
     
-    return mock_verify
+    # Use AsyncMock with side_effect - AsyncMock automatically handles async functions
+    mock = AsyncMock(side_effect=mock_verify)
+    return mock
 
 
 @pytest.fixture
@@ -76,7 +78,9 @@ def mock_get_or_create_user():
             "auth0_id": TEST_AUTH0_ID,
         }
     
-    return mock_get_user
+    # Use AsyncMock with side_effect - AsyncMock automatically handles async functions
+    mock = AsyncMock(side_effect=mock_get_user)
+    return mock
 
 
 @pytest.fixture
@@ -129,6 +133,7 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
         },
         "carts": {},  # cart_id -> cart_doc
         "items": {},  # item_id -> item_doc
+        "feedback": {},  # feedback_id -> feedback_doc
     }
 
     class MockInsertResult:
@@ -212,6 +217,11 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
                     if _match_query(doc, query):
                         return copy.deepcopy(doc)
                 return None
+            if self.name == "feedback":
+                for doc in db_state["feedback"].values():
+                    if _match_query(doc, query):
+                        return copy.deepcopy(doc)
+                return None
             return None
 
         def find(self, query: dict):
@@ -244,6 +254,8 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
                 db_state["carts"][doc["cart_id"]] = copy.deepcopy(doc)
             elif self.name == "items":
                 db_state["items"][doc["item_id"]] = copy.deepcopy(doc)
+            elif self.name == "feedback":
+                db_state["feedback"][doc["feedback_id"]] = copy.deepcopy(doc)
             return MockInsertResult()
 
         async def update_one(self, filter_query: dict, update_op: dict, upsert: bool = False):
@@ -481,60 +493,71 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
     users_mock = InMemoryCollection("users")
     carts_mock = InMemoryCollection("carts")
     items_mock = InMemoryCollection("items")
+    feedback_mock = InMemoryCollection("feedback")
     
-    # Import the modules to patch them
-    import app.auth.auth0 as auth0_module
-    import app.auth.dependencies as deps_module
-    import app.functions.database as db_module
-    import app.functions.cart as cart_module
-    import app.functions.item as item_module
-    import app.functions.user as user_module
+    # Import the modules to patch them (new structure)
+    import app.core.security as security_module
+    import app.core.dependencies as deps_module
+    import app.core.database as db_module
+    import app.repositories.user_repository as user_repo_module
+    import app.repositories.cart_repository as cart_repo_module
+    import app.repositories.item_repository as item_repo_module
+    import app.repositories.feedback_repository as feedback_repo_module
     
-    # Patch verify_auth0_token, and replace DB collections everywhere they are imported/used.
-    with patch.object(auth0_module, "verify_auth0_token", side_effect=mock_verify_token):
-        with patch.object(deps_module, "verify_auth0_token", side_effect=mock_verify_token):
-            with patch.object(db_module, "users_collection", users_mock):
-                with patch.object(db_module, "carts_collection", carts_mock):
-                    with patch.object(db_module, "items_collection", items_mock):
-                        with patch.object(auth0_module, "users_collection", users_mock):
-                            with patch.object(deps_module, "users_collection", users_mock):
-                                with patch.object(cart_module, "users_collection", users_mock):
-                                    with patch.object(cart_module, "carts_collection", carts_mock):
-                                        with patch.object(cart_module, "items_collection", items_mock):
-                                            with patch.object(item_module, "carts_collection", carts_mock):
-                                                with patch.object(item_module, "items_collection", items_mock):
-                                                    with patch.object(user_module, "users_collection", users_mock):
-                                                        with TestClient(app) as client:
-                                                            auth_headers = {"Authorization": "Bearer mock_token_for_testing"}
-                                                            client._auth_headers = auth_headers
+    # CRITICAL: Patch where functions are USED (dependencies module)
+    # Python creates references when importing, so we must patch the reference
+    # in dependencies.py, not just the original in security.py
+    # We patch both places to be safe, but the dependencies patch is the critical one
+    # Also patch users_collection in security_module since get_or_create_user_from_token uses it
+    with patch.object(deps_module, "verify_auth0_token", new=mock_verify_token):
+        with patch.object(deps_module, "get_or_create_user_from_token", new=mock_get_or_create_user):
+            # Also patch at source for completeness (any direct imports elsewhere)
+            with patch.object(security_module, "verify_auth0_token", new=mock_verify_token):
+                with patch.object(security_module, "get_or_create_user_from_token", new=mock_get_or_create_user):
+                    # Patch database collections - must patch in all modules that import them
+                    with patch.object(db_module, "users_collection", users_mock):
+                        with patch.object(db_module, "carts_collection", carts_mock):
+                            with patch.object(db_module, "items_collection", items_mock):
+                                with patch.object(db_module, "feedback_collection", feedback_mock):
+                                    # Also patch in security_module since it imports users_collection
+                                    with patch.object(security_module, "users_collection", users_mock):
+                                        with patch.object(deps_module, "users_collection", users_mock):
+                                            # Patch in repository modules since they import collections at module level
+                                            with patch.object(user_repo_module, "users_collection", users_mock):
+                                                with patch.object(cart_repo_module, "carts_collection", carts_mock):
+                                                    with patch.object(item_repo_module, "items_collection", items_mock):
+                                                        with patch.object(feedback_repo_module, "feedback_collection", feedback_mock):
+                                                            with TestClient(app) as client:
+                                                                auth_headers = {"Authorization": "Bearer mock_token_for_testing"}
+                                                                client._auth_headers = auth_headers
 
-                                                            original_get = client.get
-                                                            original_post = client.post
-                                                            original_put = client.put
-                                                            original_delete = client.delete
+                                                                original_get = client.get
+                                                                original_post = client.post
+                                                                original_put = client.put
+                                                                original_delete = client.delete
 
-                                                            def _get(url, **kwargs):
-                                                                kwargs.setdefault("headers", {}).update(auth_headers)
-                                                                return original_get(url, **kwargs)
+                                                                def _get(url, **kwargs):
+                                                                    kwargs.setdefault("headers", {}).update(auth_headers)
+                                                                    return original_get(url, **kwargs)
 
-                                                            def _post(url, **kwargs):
-                                                                kwargs.setdefault("headers", {}).update(auth_headers)
-                                                                return original_post(url, **kwargs)
+                                                                def _post(url, **kwargs):
+                                                                    kwargs.setdefault("headers", {}).update(auth_headers)
+                                                                    return original_post(url, **kwargs)
 
-                                                            def _put(url, **kwargs):
-                                                                kwargs.setdefault("headers", {}).update(auth_headers)
-                                                                return original_put(url, **kwargs)
+                                                                def _put(url, **kwargs):
+                                                                    kwargs.setdefault("headers", {}).update(auth_headers)
+                                                                    return original_put(url, **kwargs)
 
-                                                            def _delete(url, **kwargs):
-                                                                kwargs.setdefault("headers", {}).update(auth_headers)
-                                                                return original_delete(url, **kwargs)
+                                                                def _delete(url, **kwargs):
+                                                                    kwargs.setdefault("headers", {}).update(auth_headers)
+                                                                    return original_delete(url, **kwargs)
 
-                                                            client.get = _get
-                                                            client.post = _post
-                                                            client.put = _put
-                                                            client.delete = _delete
+                                                                client.get = _get
+                                                                client.post = _post
+                                                                client.put = _put
+                                                                client.delete = _delete
 
-                                                            yield client
+                                                                yield client
 
 
 @pytest.fixture
@@ -544,11 +567,18 @@ async def async_authenticated_client(mock_verify_token, mock_get_or_create_user)
     Create an async test client with mocked authentication.
     Note: Most tests use TestClient (synchronous), this is for async-specific tests.
     """
-    with patch("app.auth.auth0.verify_auth0_token", side_effect=mock_verify_token):
-        with patch("app.auth.auth0.get_or_create_user_from_token", side_effect=mock_get_or_create_user):
-            async with AsyncClient(app=app, base_url="http://test") as client:
-                client.headers = {"Authorization": "Bearer mock_token_for_testing"}
-                yield client
+    import app.core.security as security_module
+    import app.core.dependencies as deps_module
+    
+    # Patch where functions are used (dependencies module)
+    with patch.object(deps_module, "verify_auth0_token", new=mock_verify_token):
+        with patch.object(deps_module, "get_or_create_user_from_token", new=mock_get_or_create_user):
+            # Also patch at source
+            with patch.object(security_module, "verify_auth0_token", new=mock_verify_token):
+                with patch.object(security_module, "get_or_create_user_from_token", new=mock_get_or_create_user):
+                    async with AsyncClient(app=app, base_url="http://test") as client:
+                        client.headers = {"Authorization": "Bearer mock_token_for_testing"}
+                        yield client
 
 
 @pytest.fixture
@@ -595,15 +625,15 @@ def sample_item_data() -> dict:
 @pytest.fixture
 def mock_clip_verifier():
     """Mock CLIP image verification service."""
-    with patch('app.services.clip_verifier.verify_image_with_clip') as mock:
+    with patch('app.services.ai.clip_verifier.verify_image_with_clip') as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_openai_parser():
     """Mock OpenAI parser services."""
-    with patch('app.services.openai_parser.parse_images_with_openai') as mock_images, \
-         patch('app.services.openai_parser.parse_inner_text_with_openai') as mock_text:
+    with patch('app.services.ai.openai_parser.parse_images_with_openai') as mock_images, \
+         patch('app.services.ai.openai_parser.parse_inner_text_with_openai') as mock_text:
         yield {
             'parse_images': mock_images,
             'parse_text': mock_text
@@ -613,14 +643,14 @@ def mock_openai_parser():
 @pytest.fixture
 def mock_bert_verifier():
     """Mock BERT URL classification service."""
-    with patch('app.services.bert_verifier.predict_product_page') as mock:
+    with patch('app.services.ai.bert_verifier.predict_product_page') as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_email_service():
     """Mock email sending service."""
-    with patch('app.functions.user.send_email_gmail') as mock:
+    with patch('app.services.email.email_service.send_email_ses') as mock:
         yield mock
 
 

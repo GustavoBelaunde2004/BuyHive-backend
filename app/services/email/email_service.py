@@ -4,7 +4,7 @@ Replaces yagmail (Gmail SMTP) with AWS SES for better scalability.
 """
 import boto3
 from botocore.exceptions import ClientError
-from app.config.settings import settings
+from app.core.config import settings
 from typing import Optional
 
 # Initialize SES client

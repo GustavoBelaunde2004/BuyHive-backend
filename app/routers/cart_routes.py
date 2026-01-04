@@ -1,61 +1,68 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import List
-from app.functions.base import AddCartRequest, EditCartNameRequest
-from app.functions.cart import save_cart, get_carts, delete_cart, update_cart_name
-from app.auth.dependencies import get_current_user
+from app.schemas.cart import AddCartRequest, EditCartNameRequest, CartResponse
+from app.services.cart_service import CartService
+from app.core.dependencies import get_current_user, get_cart_service
 from app.models.user import User
-from app.models.cart import Cart
 from app.utils.rate_limiter import rate_limit
 
 router = APIRouter()
 
-@router.post("")
+@router.post("", response_model=dict)
 @rate_limit("60/minute")
 async def add_cart(
     request: Request,
     payload: AddCartRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    cart_service: CartService = Depends(get_cart_service)
 ):
     """Add a new cart for a user."""
     try:
-        response = await save_cart(current_user.user_id, payload.cart_name)
+        response = await cart_service.create_cart(current_user.user_id, payload.cart_name)
         return response
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:  
         raise HTTPException(status_code=500, detail=str(e))
 
-# EDIT CART NAME ROUTE
-@router.put("/{cart_id}/edit-name")
+@router.put("/{cart_id}/edit-name", response_model=dict)
 async def edit_cart_name(
     cart_id: str,
     payload: EditCartNameRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    cart_service: CartService = Depends(get_cart_service)
 ):
     """Edit the name of a specific cart."""
     try:
-        response = await update_cart_name(current_user.user_id, cart_id, payload.new_name)
+        response = await cart_service.update_cart_name(
+            current_user.user_id, 
+            cart_id, 
+            payload.new_name
+        )
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# RETRIEVE CART NAMES
-@router.get("")
-async def retrieve_carts(current_user: User = Depends(get_current_user)) -> dict:
+@router.get("", response_model=dict)
+async def retrieve_carts(
+    current_user: User = Depends(get_current_user),
+    cart_service: CartService = Depends(get_cart_service)
+) -> dict:
     """Get all carts for a user."""
     try:
-        carts = await get_carts(current_user.user_id)
-        return {"carts": carts}  # FastAPI will auto-serialize List[Cart] to JSON
+        carts = await cart_service.get_user_carts(current_user.user_id)
+        return {"carts": carts}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# DELETE
-@router.delete("/{cart_id}")
+@router.delete("/{cart_id}", response_model=dict)
 async def remove_cart(
     cart_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    cart_service: CartService = Depends(get_cart_service)
 ):
     """Delete a specific cart for a user."""
     try:
-        response = await delete_cart(current_user.user_id, cart_id)
+        response = await cart_service.delete_cart(current_user.user_id, cart_id)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -3,7 +3,7 @@ Rate limiting utilities for FastAPI routes.
 """
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from app.config.settings import settings
+from app.core.config import settings
 from fastapi import Request
 
 def get_rate_limit_key(request: Request):

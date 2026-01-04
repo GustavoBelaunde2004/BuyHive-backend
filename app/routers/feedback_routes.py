@@ -1,22 +1,25 @@
 from fastapi import APIRouter, HTTPException, Request
-from app.functions.base import FeedbackFormRequest
-from app.functions.feedback import save_feedback
+from app.schemas.feedback import FeedbackFormRequest
+from app.services.feedback_service import FeedbackService
+from app.core.dependencies import get_feedback_service
+from fastapi import Depends
 from app.utils.rate_limiter import rate_limit
 
 router = APIRouter()
 
-@router.post("/submit")
-@rate_limit("5/hour")
+@router.post("/submit", response_model=dict)
+@rate_limit("10/minute")
 async def submit_feedback(
     request: Request,
-    payload: FeedbackFormRequest
+    payload: FeedbackFormRequest,
+    feedback_service: FeedbackService = Depends(get_feedback_service)
 ):
     """
     Submit feedback (bug report or feature request).
     Saves to MongoDB and posts to Google Sheets.
     """
     try:
-        result = await save_feedback(
+        result = await feedback_service.submit_feedback(
             type=payload.type,
             description=payload.description,
             firstName=payload.firstName,
@@ -32,4 +35,3 @@ async def submit_feedback(
             status_code=500,
             detail=f"Error processing feedback: {str(e)}"
         )
-

@@ -3,7 +3,7 @@ OpenAI Vision API verifier for image verification.
 Used as a fallback when CLIP verification fails.
 """
 from openai import OpenAI
-from app.config.settings import settings
+from app.core.config import settings
 import httpx
 
 # Initialize OpenAI client

@@ -7,12 +7,12 @@ from app.routers.item_routes import router as item_router
 from app.routers.user_routes import router as user_router
 from app.routers.extraction_routes import router as extraction_router
 from app.routers.feedback_routes import router as feedback_router
-from app.config.settings import settings
-from app.services.clip_verifier import check_clip_model_status
-from app.services.bert_verifier import MODEL_AVAILABLE
-from app.services.vision_verifier import check_openai_vision_availability
-from app.functions.database import client
-from app.functions.database import users_collection, carts_collection, items_collection, feedback_collection
+from app.core.config import settings
+from app.services.ai.clip_verifier import check_clip_model_status
+from app.services.ai.bert_verifier import MODEL_AVAILABLE
+from app.services.ai.vision_verifier import check_openai_vision_availability
+from app.core.database import client
+from app.core.database import users_collection, carts_collection, items_collection, feedback_collection
 from datetime import datetime
 import httpx
 

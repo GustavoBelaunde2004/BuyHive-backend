@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # JWT (for internal use if needed)
     JWT_SECRET_KEY: str = ""  # Not needed for Auth0, but kept for compatibility
     JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # Default expiration
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Default expiration
     
     # CORS
     ALLOWED_ORIGINS: str = ""  # Comma-separated list

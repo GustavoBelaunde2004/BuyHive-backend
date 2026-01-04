@@ -1,9 +1,14 @@
+"""FastAPI dependencies for authentication and dependency injection."""
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
-from app.auth.auth0 import verify_auth0_token, get_or_create_user_from_token
-from app.functions.database import users_collection
+from app.core.security import verify_auth0_token, get_or_create_user_from_token
+from app.core.database import users_collection
 from app.models.user import User
+from app.repositories.user_repository import UserRepository
+from app.repositories.cart_repository import CartRepository
+from app.repositories.item_repository import ItemRepository
+from app.repositories.feedback_repository import FeedbackRepository
 from typing import Optional
 
 security = HTTPBearer()
@@ -75,4 +80,64 @@ async def get_optional_user(
         return await get_current_user(credentials)
     except HTTPException:
         return None
+
+
+# Repository dependency injection functions
+def get_user_repository() -> UserRepository:
+    """Get UserRepository instance."""
+    return UserRepository()
+
+
+def get_cart_repository() -> CartRepository:
+    """Get CartRepository instance."""
+    return CartRepository()
+
+
+def get_item_repository() -> ItemRepository:
+    """Get ItemRepository instance."""
+    return ItemRepository()
+
+
+def get_feedback_repository() -> FeedbackRepository:
+    """Get FeedbackRepository instance."""
+    return FeedbackRepository()
+
+
+# Service dependency injection functions
+from app.services.cart_service import CartService
+from app.services.item_service import ItemService
+from app.services.user_service import UserService
+from app.services.feedback_service import FeedbackService
+
+
+def get_cart_service(
+    cart_repo: CartRepository = Depends(get_cart_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+    item_repo: ItemRepository = Depends(get_item_repository)
+) -> CartService:
+    """Get CartService instance."""
+    return CartService(cart_repo, user_repo, item_repo)
+
+
+def get_item_service(
+    item_repo: ItemRepository = Depends(get_item_repository),
+    cart_repo: CartRepository = Depends(get_cart_repository)
+) -> ItemService:
+    """Get ItemService instance."""
+    return ItemService(item_repo, cart_repo)
+
+
+def get_user_service(
+    item_service: ItemService = Depends(get_item_service),
+    cart_repo: CartRepository = Depends(get_cart_repository)
+) -> UserService:
+    """Get UserService instance."""
+    return UserService(item_service, cart_repo)
+
+
+def get_feedback_service(
+    feedback_repo: FeedbackRepository = Depends(get_feedback_repository)
+) -> FeedbackService:
+    """Get FeedbackService instance."""
+    return FeedbackService(feedback_repo)
 

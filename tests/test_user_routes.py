@@ -28,7 +28,7 @@ class TestUserRoutes:
         authenticated_client.delete(f"/carts/{cart_id}")
     
     @pytest.mark.skip(reason="Async mocking issue with TestClient - needs AsyncClient or different mocking approach")
-    @patch('app.routers.user_routes.send_email_gmail')
+    @patch('app.services.user_service.send_email_ses')
     def test_share_cart_success(self, mock_email, authenticated_client, test_cart_with_items, sample_cart_data):
         """Test successful cart sharing via email."""
         # Use side_effect with async function - TestClient can properly await this
@@ -56,7 +56,7 @@ class TestUserRoutes:
         assert isinstance(call_args[0][2], list)  # cart_items (List[ItemInDB])
     
     @pytest.mark.skip(reason="Async mocking issue with TestClient - needs AsyncClient or different mocking approach")
-    @patch('app.routers.user_routes.send_email_gmail')
+    @patch('app.services.user_service.send_email_ses')
     def test_share_cart_not_found(self, mock_email, authenticated_client):
         """Test sharing a cart that doesn't exist."""
         # Mock won't be called since we return 404 before email, but set it up just in case
@@ -74,7 +74,7 @@ class TestUserRoutes:
         assert "not found" in data.get("detail", "").lower()
     
     @pytest.mark.skip(reason="Async mocking issue with TestClient - needs AsyncClient or different mocking approach")
-    @patch('app.routers.user_routes.send_email_gmail')
+    @patch('app.services.user_service.send_email_ses')
     def test_share_empty_cart(self, mock_email, authenticated_client, sample_cart_data):
         """Test sharing an empty cart."""
         # Use side_effect with async function - TestClient can properly await this
@@ -115,21 +115,23 @@ class TestUserRoutes:
         # Should return 422 (validation error) or 400
         assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY]
     
-    @patch('app.routers.user_routes.send_email_gmail')
-    def test_share_cart_email_failure(self, mock_email, authenticated_client, test_cart_with_items):
+    def test_share_cart_email_failure(self, authenticated_client, test_cart_with_items):
         """Test cart sharing when email service fails."""
+        from unittest.mock import AsyncMock, patch
         async def mock_email_func(*args, **kwargs):
             raise Exception("Email service error")
-        mock_email.side_effect = mock_email_func
-        cart_id = test_cart_with_items
         
-        payload = {
-            "recipient_email": "recipient@example.com",
-            "cart_id": cart_id
-        }
-        
-        response = authenticated_client.post("/users/carts/share", json=payload)
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        mock_email = AsyncMock(side_effect=mock_email_func)
+        with patch('app.services.user_service.send_email_ses', new=mock_email):
+            cart_id = test_cart_with_items
+            
+            payload = {
+                "recipient_email": "recipient@example.com",
+                "cart_id": cart_id
+            }
+            
+            response = authenticated_client.post("/users/carts/share", json=payload)
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     
     def test_share_cart_missing_recipient_email(self, authenticated_client, test_cart_with_items):
         """Test sharing cart with missing recipient_email."""

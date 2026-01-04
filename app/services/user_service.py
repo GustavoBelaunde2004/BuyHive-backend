@@ -1,22 +1,94 @@
-from typing import List
-from app.config.settings import settings
-from .database import users_collection
+"""User service for business logic."""
+from typing import List, Dict
+from app.services.item_service import ItemService
+from app.repositories.cart_repository import CartRepository
 from app.models.item import ItemInDB
-from app.services.email_service import send_email_ses
+from app.services.email.email_service import send_email_ses
 
-async def send_email_gmail(
-    recipient_email: str, 
-    cart_name: str, 
-    cart_items: List[ItemInDB],
-    sender_name: str = "A BuyHive user",
-    sender_email: str = ""
-) -> dict:
-    """Send a minimal, professional email with cart details and sender information."""
-    subject = f"{sender_name} shared a cart with you: {cart_name}"
 
-    # Generate items HTML separately to avoid f-string syntax issues
-    items_html = "".join([
-        f"""
+class UserService:
+    """Service for user business logic."""
+    
+    def __init__(self, item_service: ItemService, cart_repo: CartRepository):
+        """
+        Initialize user service with item service and cart repository.
+        
+        Args:
+            item_service: Item service instance
+            cart_repo: Cart repository instance
+        """
+        self.item_service = item_service
+        self.cart_repo = cart_repo
+    
+    async def share_cart(
+        self,
+        user_id: str,
+        cart_id: str,
+        recipient_email: str,
+        sender_name: str,
+        sender_email: str
+    ) -> Dict:
+        """
+        Share a cart by sending its details via email.
+        
+        Args:
+            user_id: User ID
+            cart_id: Cart ID
+            recipient_email: Recipient email address
+            sender_name: Sender name
+            sender_email: Sender email
+            
+        Returns:
+            Dictionary with success message
+            
+        Raises:
+            ValueError: If cart not found
+        """
+        # Get cart to get cart name
+        cart_doc = await self.cart_repo.find_by_id(user_id, cart_id)
+        if not cart_doc:
+            raise ValueError("Cart not found!")
+        
+        cart_name = cart_doc.get("cart_name", "Cart")
+        
+        # Get cart items
+        cart_items: List[ItemInDB] = await self.item_service.get_cart_items(user_id, cart_id)
+        
+        # Send email
+        return await self.send_cart_email(
+            recipient_email,
+            cart_name,
+            cart_items,
+            sender_name,
+            sender_email
+        )
+    
+    async def send_cart_email(
+        self,
+        recipient_email: str,
+        cart_name: str,
+        cart_items: List[ItemInDB],
+        sender_name: str = "A BuyHive user",
+        sender_email: str = ""
+    ) -> Dict:
+        """
+        Send cart details via email.
+        
+        Args:
+            recipient_email: Recipient email address
+            cart_name: Cart name
+            cart_items: List of items in cart
+            sender_name: Sender name
+            sender_email: Sender email
+            
+        Returns:
+            Dictionary with result
+        """
+        subject = f"{sender_name} shared a cart with you: {cart_name}"
+        
+        # Generate items HTML
+        items_html = "".join([
+            f"""
                                         <tr>
                                             <td style="padding: 16px 0; border-bottom: 1px solid #e5e5e5;">
                                                 <table role="presentation" style="width: 100%; border-collapse: collapse;">
@@ -44,10 +116,10 @@ async def send_email_gmail(
                                             </td>
                                         </tr>
                                         """ for item in cart_items
-    ])
-
-    # Minimal, professional email design
-    body_html = f"""
+        ])
+        
+        # Email HTML template
+        body_html = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -100,24 +172,6 @@ async def send_email_gmail(
     </body>
     </html>
     """
+        
+        return await send_email_ses(recipient_email, subject, body_html)
 
-    # Use AWS SES instead of Gmail SMTP
-    return await send_email_ses(recipient_email, subject, body_html)
-
-
-# USER FUNCTIONS --------------------------------------------------------------------------------------------------------------
-async def add_user_by_email(email: str, name: str = "Unknown") -> dict:
-    """Add a new user to the database or ensure they already exist."""
-    existing_user = await users_collection.find_one({"email": email})
-    if existing_user:
-        return {"message": "User already exists!"}
-
-    new_user = {
-        "user_id": f"email|{email}",  # legacy helper: stable id not available here
-        "email": email,
-        "name": name,
-        "cart_count": 0,
-        "cart_ids": [],
-    }
-    await users_collection.insert_one(new_user)
-    return {"message": "User added successfully!"}

@@ -1,6 +1,6 @@
 import torch
 from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
-from app.config.settings import settings
+from app.core.config import settings
 import os
 
 # Load Model and Tokenizer

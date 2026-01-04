@@ -3,7 +3,7 @@ import open_clip
 from PIL import Image
 import httpx
 from io import BytesIO
-from app.config.settings import settings
+from app.core.config import settings
 
 # Lazy loading: Model components loaded on first use
 _model = None

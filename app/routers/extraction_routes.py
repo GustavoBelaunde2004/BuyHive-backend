@@ -1,13 +1,13 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
-from app.functions.base import ImageRequest, ProductVerificationRequest, URLRequest
-from app.services.openai_parser import parse_images_with_openai, parse_inner_text_with_openai
-from app.services.clip_verifier import verify_image_with_clip
-from app.services.vision_verifier import verify_with_openai_vision
-from app.services.bert_verifier import predict_product_page
+from app.schemas.extraction import ImageRequest, ProductVerificationRequest, URLRequest
+from app.services.ai.openai_parser import parse_images_with_openai, parse_inner_text_with_openai
+from app.services.ai.clip_verifier import verify_image_with_clip
+from app.services.ai.vision_verifier import verify_with_openai_vision
+from app.services.ai.bert_verifier import predict_product_page
 from app.utils.utils import extract_product_name_from_url
-from app.auth.dependencies import get_current_user
+from app.core.dependencies import get_current_user
 from app.models.user import User
-from app.config.settings import settings
+from app.core.config import settings
 from app.utils.rate_limiter import rate_limit
 
 router = APIRouter()

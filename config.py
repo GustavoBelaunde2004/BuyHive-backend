@@ -1,8 +1,8 @@
 """
 Legacy config file - kept for backward compatibility.
-All new code should use app.config.settings instead.
+All new code should use app.core.config.settings instead.
 """
-from app.config.settings import settings
+from app.core.config import settings
 
 # Export settings for backward compatibility
 MONGO_URL = settings.MONGO_URL

@@ -41,7 +41,11 @@ class TestAuthEndpoints:
         # Mock verify_auth0_token to raise JWTError for invalid tokens
         # This prevents the test from trying to connect to Auth0's JWKS endpoint
         # Use AsyncMock since verify_auth0_token is an async function
-        with patch("app.auth.dependencies.verify_auth0_token", new_callable=AsyncMock, side_effect=JWTError("Invalid token")):
+        async def raise_jwt_error(*args, **kwargs):
+            raise JWTError("Invalid token")
+        
+        mock_verify = AsyncMock(side_effect=raise_jwt_error)
+        with patch("app.core.dependencies.verify_auth0_token", new=mock_verify):
             response = unauthenticated_client.get(
                 "/auth/me",
                 headers={"Authorization": "Bearer invalid_token"}
