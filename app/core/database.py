@@ -20,5 +20,6 @@ users_collection = db["users"]
 carts_collection = db["carts"]
 items_collection = db["items"]
 feedback_collection = db["feedback"]
-failed_extraction_collection = db["failed_extractions"]
+failed_page_extraction_collection = db["failed_page_extractions"]
+failed_item_extraction_collection = db["failed_item_extractions"]
 

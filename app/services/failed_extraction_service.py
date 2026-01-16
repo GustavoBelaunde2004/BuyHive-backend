@@ -3,21 +3,29 @@ from datetime import datetime
 from uuid import uuid4
 from typing import Dict
 from urllib.parse import urlparse
-from app.repositories.failed_extraction_repository import FailedExtractionRepository
-from app.models.failed_extraction import FailedExtraction
+from app.repositories.failed_page_extraction_repository import FailedPageExtractionRepository
+from app.repositories.failed_item_extraction_repository import FailedItemExtractionRepository
+from app.models.failed_page_extraction import FailedPageExtraction
+from app.models.failed_item_extraction import FailedItemExtraction
 
 
 class FailedExtractionService:
     """Service for failed extraction business logic."""
     
-    def __init__(self, extraction_repo: FailedExtractionRepository):
+    def __init__(
+        self,
+        page_extraction_repo: FailedPageExtractionRepository,
+        item_extraction_repo: FailedItemExtractionRepository
+    ):
         """
-        Initialize failed extraction service with repository.
+        Initialize failed extraction service with repositories.
         
         Args:
-            extraction_repo: Failed extraction repository instance
+            page_extraction_repo: Failed page extraction repository instance
+            item_extraction_repo: Failed item extraction repository instance
         """
-        self.extraction_repo = extraction_repo
+        self.page_extraction_repo = page_extraction_repo
+        self.item_extraction_repo = item_extraction_repo
     
     def _extract_domain(self, url: str) -> str:
         """
@@ -41,17 +49,19 @@ class FailedExtractionService:
         
         return domain
     
-    async def submit_failed_extraction(
+    async def submit_failed_page_extraction(
         self,
         url: str,
-        user_id: str
+        failure_type: str,
+        confidence: float
     ) -> Dict:
         """
-        Submit failed extraction (save to MongoDB).
+        Submit failed page extraction (save to MongoDB).
         
         Args:
-            url: URL that failed extraction
-            user_id: User ID who encountered the failure
+            url: URL that failed page extraction
+            failure_type: Type of failure (e.g., "unsupported", "no_product")
+            confidence: Confidence that this is a failure (0.0-1.0)
             
         Returns:
             Dictionary with success message and extraction_id
@@ -62,22 +72,66 @@ class FailedExtractionService:
         # Extract domain from URL
         domain = self._extract_domain(url)
         
-        # Create FailedExtraction instance
-        failed_extraction = FailedExtraction(
+        # Create FailedPageExtraction instance
+        failed_extraction = FailedPageExtraction(
             extraction_id=extraction_id,
             url=str(url),
             domain=domain,
-            user_id=user_id,
+            failure_type=failure_type,
+            confidence=confidence,
             timestamp=now,  # Server-generated timestamp
             created_at=now,
         )
         
         # Convert to MongoDB dict and save
         extraction_doc = failed_extraction.to_mongo_dict()
-        await self.extraction_repo.create(extraction_doc)
+        await self.page_extraction_repo.create(extraction_doc)
         
-        return {
-            "message": "Failed extraction recorded successfully",
-            "extraction_id": extraction_id
-        }
+        return {"status": "success"}
+    
+    async def submit_failed_item_extraction(
+        self,
+        url: str,
+        type: str,
+        image_confidence: float,
+        name_confidence: float,
+        price_confidence: float
+    ) -> Dict:
+        """
+        Submit failed item extraction (save to MongoDB).
+        
+        Args:
+            url: URL of the page where item extraction failed
+            type: Type of failure (e.g., "maybe", "not_a_product")
+            image_confidence: Confidence for image extraction (0.0-1.0)
+            name_confidence: Confidence for name extraction (0.0-1.0)
+            price_confidence: Confidence for price extraction (0.0-1.0)
+            
+        Returns:
+            Dictionary with success message and extraction_id
+        """
+        extraction_id = str(uuid4())
+        now = datetime.utcnow().isoformat()
+        
+        # Extract domain from URL
+        domain = self._extract_domain(url)
+        
+        # Create FailedItemExtraction instance
+        failed_extraction = FailedItemExtraction(
+            extraction_id=extraction_id,
+            url=str(url),
+            domain=domain,
+            type=type,
+            image_confidence=image_confidence,
+            name_confidence=name_confidence,
+            price_confidence=price_confidence,
+            timestamp=now,  # Server-generated timestamp
+            created_at=now,
+        )
+        
+        # Convert to MongoDB dict and save
+        extraction_doc = failed_extraction.to_mongo_dict()
+        await self.item_extraction_repo.create(extraction_doc)
+        
+        return {"status": "success"}
 

@@ -13,7 +13,7 @@ from app.services.ai.clip_verifier import check_clip_model_status
 from app.services.ai.bert_verifier import MODEL_AVAILABLE
 from app.services.ai.vision_verifier import check_openai_vision_availability
 from app.core.database import client
-from app.core.database import users_collection, carts_collection, items_collection, feedback_collection, failed_extraction_collection
+from app.core.database import users_collection, carts_collection, items_collection, feedback_collection, failed_page_extraction_collection, failed_item_extraction_collection
 from datetime import datetime
 import httpx
 
@@ -37,10 +37,13 @@ async def ensure_mongo_indexes() -> None:
         await items_collection.create_index([("user_id", 1), ("url", 1)], unique=True, sparse=True)
         await feedback_collection.create_index("feedback_id", unique=True)
         await feedback_collection.create_index("email")
-        await failed_extraction_collection.create_index("extraction_id", unique=True)
-        await failed_extraction_collection.create_index("domain")
-        await failed_extraction_collection.create_index("user_id")
-        await failed_extraction_collection.create_index("timestamp")
+        await failed_page_extraction_collection.create_index("extraction_id", unique=True)
+        await failed_page_extraction_collection.create_index("domain")
+        await failed_page_extraction_collection.create_index("timestamp")
+        await failed_item_extraction_collection.create_index("extraction_id", unique=True)
+        await failed_item_extraction_collection.create_index("domain")
+        await failed_item_extraction_collection.create_index("timestamp")
+        await failed_item_extraction_collection.create_index("type")
     except Exception:
         # Index creation should never prevent the app from starting
         return

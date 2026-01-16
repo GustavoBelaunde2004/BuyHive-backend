@@ -9,7 +9,8 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.cart_repository import CartRepository
 from app.repositories.item_repository import ItemRepository
 from app.repositories.feedback_repository import FeedbackRepository
-from app.repositories.failed_extraction_repository import FailedExtractionRepository
+from app.repositories.failed_page_extraction_repository import FailedPageExtractionRepository
+from app.repositories.failed_item_extraction_repository import FailedItemExtractionRepository
 from typing import Optional
 
 security = HTTPBearer()
@@ -104,9 +105,14 @@ def get_feedback_repository() -> FeedbackRepository:
     return FeedbackRepository()
 
 
-def get_failed_extraction_repository() -> FailedExtractionRepository:
-    """Get FailedExtractionRepository instance."""
-    return FailedExtractionRepository()
+def get_failed_page_extraction_repository() -> FailedPageExtractionRepository:
+    """Get FailedPageExtractionRepository instance."""
+    return FailedPageExtractionRepository()
+
+
+def get_failed_item_extraction_repository() -> FailedItemExtractionRepository:
+    """Get FailedItemExtractionRepository instance."""
+    return FailedItemExtractionRepository()
 
 
 # Service dependency injection functions
@@ -150,8 +156,9 @@ def get_feedback_service(
 
 
 def get_failed_extraction_service(
-    extraction_repo: FailedExtractionRepository = Depends(get_failed_extraction_repository)
+    page_extraction_repo: FailedPageExtractionRepository = Depends(get_failed_page_extraction_repository),
+    item_extraction_repo: FailedItemExtractionRepository = Depends(get_failed_item_extraction_repository)
 ) -> FailedExtractionService:
     """Get FailedExtractionService instance."""
-    return FailedExtractionService(extraction_repo)
+    return FailedExtractionService(page_extraction_repo, item_extraction_repo)
 
