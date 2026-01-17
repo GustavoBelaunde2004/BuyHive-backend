@@ -27,9 +27,12 @@ class TestCartEndpoints:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert "cart_id" in data
-        assert "message" in data
+        assert "cart_name" in data
+        assert "item_count" in data
+        assert "created_at" in data
+        assert "item_ids" in data
         # Verify cart was created by fetching it
-        assert "Cart" in data["message"] and "successfully" in data["message"].lower()
+        assert data["cart_name"] == sample_cart_data["cart_name"]
         
         # Store cart_id for cleanup
         cart_id = data["cart_id"]

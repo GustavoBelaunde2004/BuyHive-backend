@@ -148,6 +148,12 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
         def __init__(self, docs):
             self._docs = docs
 
+        def sort(self, sort_list):
+            """Mock sort method that returns self (fluent interface)."""
+            # For now, just return self - sorting is not critical for tests
+            # In a real implementation, we'd sort self._docs based on sort_list
+            return self
+
         async def to_list(self, length=None):
             return copy.deepcopy(self._docs)
 
@@ -225,6 +231,7 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
             return None
 
         def find(self, query: dict):
+            """Mock find method that returns a MockCursor - required for find_many()."""
             if self.name == "carts":
                 docs = [d for d in db_state["carts"].values() if _match_query(d, query)]
                 return MockCursor(docs)
@@ -244,6 +251,12 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
                                 break
                     if ok:
                         docs.append(d)
+                return MockCursor(docs)
+            if self.name == "users":
+                docs = [d for d in db_state["users"].values() if _match_query(d, query)]
+                return MockCursor(docs)
+            if self.name == "feedback":
+                docs = [d for d in db_state["feedback"].values() if _match_query(d, query)]
                 return MockCursor(docs)
             return MockCursor([])
 
