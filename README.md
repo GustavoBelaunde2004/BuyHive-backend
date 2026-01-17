@@ -18,15 +18,13 @@ BuyHive-backend is the core API service for BuyHive, a browser extension that he
 - **Item Management**: Add, edit, and organize items across carts
 - **User Management**: Auth0-based authentication and user profiles
 - **Product Extraction**: AI-powered extraction from e-commerce URLs using Groq and OpenAI
-- **Image Verification**: CLIP and OpenAI Vision for product image validation
-- **URL Classification**: BERT-based classification of e-commerce pages
 - **Feedback System**: Bug reports and feature requests (MongoDB + Google Sheets)
 
 ### Tech Stack
 
 - **Framework**: FastAPI
 - **Database**: MongoDB Atlas (via `motor`)
-- **AI/ML**: OpenAI, CLIP, BERT (HuggingFace Transformers, TensorFlow, PyTorch)
+- **AI/ML**: OpenAI (GPT-4o, Vision API), Groq
 - **Authentication**: Auth0
 - **Email**: AWS SES (optional, for cart sharing)
 - **Deployment**: Railway (via Docker)

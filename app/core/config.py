@@ -45,12 +45,8 @@ class Settings(BaseSettings):
     CSE_ID: str = ""
     GOOGLE_SHEETS_SCRIPT_URL: str = ""
     
-    # ML Models
-    BERT_MODEL_PATH: str = ""
-    
-    # CLIP Configuration
-    CLIP_THRESHOLD: float = 0.28  # Similarity threshold for image verification
-    ENABLE_VISION_FALLBACK: bool = True  # Use OpenAI Vision as fallback when CLIP fails
+    # OpenAI Vision Configuration
+    ENABLE_VISION_FALLBACK: bool = True  # Use OpenAI Vision for image verification
     
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True

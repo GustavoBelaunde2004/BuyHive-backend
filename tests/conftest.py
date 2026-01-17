@@ -623,13 +623,6 @@ def sample_item_data() -> dict:
 
 # Mock fixtures for ML services and external dependencies
 @pytest.fixture
-def mock_clip_verifier():
-    """Mock CLIP image verification service."""
-    with patch('app.services.ai.clip_verifier.verify_image_with_clip') as mock:
-        yield mock
-
-
-@pytest.fixture
 def mock_openai_parser():
     """Mock OpenAI parser services."""
     with patch('app.services.ai.openai_parser.parse_images_with_openai') as mock_images, \
@@ -638,13 +631,6 @@ def mock_openai_parser():
             'parse_images': mock_images,
             'parse_text': mock_text
         }
-
-
-@pytest.fixture
-def mock_bert_verifier():
-    """Mock BERT URL classification service."""
-    with patch('app.services.ai.bert_verifier.predict_product_page') as mock:
-        yield mock
 
 
 @pytest.fixture

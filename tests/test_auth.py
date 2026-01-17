@@ -19,7 +19,7 @@ class TestAuthEndpoints:
         # Check for new health check format with detailed status
         assert "status" in data
         assert "timestamp" in data
-        # May have service checks (database, clip_model, etc.)
+        # May have service checks (database, openai_api, etc.)
     
     def test_get_current_user_authenticated(self, authenticated_client):
         """Test getting current user info when authenticated."""

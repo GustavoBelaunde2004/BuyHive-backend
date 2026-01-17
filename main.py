@@ -9,8 +9,6 @@ from app.routers.extraction_routes import router as extraction_router
 from app.routers.feedback_routes import router as feedback_router
 from app.routers.failed_extraction_routes import router as failed_extraction_router
 from app.core.config import settings
-from app.services.ai.clip_verifier import check_clip_model_status
-from app.services.ai.bert_verifier import MODEL_AVAILABLE
 from app.services.ai.vision_verifier import check_openai_vision_availability
 from app.core.database import client
 from app.core.database import users_collection, carts_collection, items_collection, feedback_collection, failed_page_extraction_collection, failed_item_extraction_collection
@@ -115,28 +113,19 @@ async def check_openai_connectivity() -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-def check_bert_model_status() -> dict:
-    """Check if BERT model is available."""
-    if MODEL_AVAILABLE:
-        return {"status": "ok", "message": "BERT model available"}
-    else:
-        return {"status": "unavailable", "message": "BERT model not configured or not found"}
-
 @app.get("/health")
 async def health():
     """Enhanced health check endpoint with detailed service status."""
     checks = {
         "status": "healthy",
         "database": await check_database_connection(),
-        "clip_model": check_clip_model_status(),
-        "bert_model": check_bert_model_status(),
         "openai_api": await check_openai_connectivity(),
         "openai_vision": await check_openai_vision_availability(),
         "timestamp": datetime.utcnow().isoformat()
     }
     
     # Determine overall status
-    critical_checks = ["database", "clip_model"]
+    critical_checks = ["database"]
     all_critical_ok = all(
         checks[key].get("status") == "ok" 
         for key in critical_checks 
