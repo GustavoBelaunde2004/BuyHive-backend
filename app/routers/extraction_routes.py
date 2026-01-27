@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
-from app.schemas.extraction import ImageRequest
+from app.schemas.extraction import ImageRequest, InnerTextRequest
 from app.services.ai.openai_parser import parse_images_with_openai, parse_inner_text_with_openai
 from app.utils.utils import extract_product_name_from_url
 from app.core.dependencies import get_current_user
@@ -48,25 +48,16 @@ async def analyze_images(
 @router.post("/extract")
 @rate_limit("10/minute")
 async def extract_cart_info(
-    request: Request,
+    payload: InnerTextRequest,
     current_user: User = Depends(get_current_user)
 ):
     try:
-        # Receive plain text input
-        input_text = await request.body()
-        input_text = input_text.decode("utf-8").strip()
-
-        if not input_text:
-            raise HTTPException(status_code=400, detail="Invalid input: Expecting plain text input.")
-
         # Call the parser
-        extracted_data = parse_inner_text_with_openai(input_text)
+        extracted_data = parse_inner_text_with_openai(payload.inner_text)
 
         return {"cart_items": extracted_data}
 
     except HTTPException:
         raise
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(ve)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

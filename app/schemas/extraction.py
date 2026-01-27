@@ -16,6 +16,18 @@ class ImageRequest(BaseModel):
         return v.strip()
 
 
+class InnerTextRequest(BaseModel):
+    """Request schema for inner text extraction."""
+    inner_text: str
+    
+    @field_validator('inner_text')
+    @classmethod
+    def validate_inner_text(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("inner_text cannot be empty")
+        return v.strip()
+
+
 class ProductVerificationRequest(BaseModel):
     """Request schema for product image verification."""
     product_name: str
