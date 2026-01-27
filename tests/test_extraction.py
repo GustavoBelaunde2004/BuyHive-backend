@@ -87,8 +87,7 @@ class TestExtractionRoutes:
         
         response = authenticated_client.post(
             "/extract/extract",
-            content=input_text,
-            headers={"Content-Type": "text/plain"}
+            json={"inner_text": input_text}
         )
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -99,11 +98,10 @@ class TestExtractionRoutes:
         """Test /extract endpoint with empty input."""
         response = authenticated_client.post(
             "/extract/extract",
-            content="",
-            headers={"Content-Type": "text/plain"}
+            json={"inner_text": ""}
         )
-        # Empty input should return 400, but might return 500 if request body is empty
-        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        # Empty input should return 422 (Pydantic validation) or 400
+        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_422_UNPROCESSABLE_ENTITY]
     
     @patch('app.routers.extraction_routes.parse_inner_text_with_openai')
     def test_extract_openai_failure(self, mock_openai, authenticated_client):
@@ -114,8 +112,7 @@ class TestExtractionRoutes:
         
         response = authenticated_client.post(
             "/extract/extract",
-            content=input_text,
-            headers={"Content-Type": "text/plain"}
+            json={"inner_text": input_text}
         )
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     
@@ -123,8 +120,7 @@ class TestExtractionRoutes:
         """Test that /extract requires authentication."""
         response = unauthenticated_client.post(
             "/extract/extract",
-            content="test",
-            headers={"Content-Type": "text/plain"}
+            json={"inner_text": "test"}
         )
         assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
 
