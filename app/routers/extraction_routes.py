@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from app.schemas.extraction import ImageRequest, InnerTextRequest
 from app.services.ai.openai_parser import parse_images_with_openai, parse_inner_text_with_openai
 from app.utils.utils import extract_product_name_from_url
@@ -48,6 +48,7 @@ async def analyze_images(
 @router.post("/extract")
 @rate_limit("10/minute")
 async def extract_cart_info(
+    request: Request,
     payload: InnerTextRequest,
     current_user: User = Depends(get_current_user)
 ):
