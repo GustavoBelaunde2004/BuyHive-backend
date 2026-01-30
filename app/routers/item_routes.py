@@ -99,7 +99,7 @@ async def add_new_item(
             status_code=409,
             detail={
                 "message": str(e),
-                "existing_item": e.existing_item
+                "existing_item": e.existing_item.model_dump()
             }
         )
     except ValueError as e:
