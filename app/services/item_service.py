@@ -7,6 +7,13 @@ from app.repositories.item_repository import ItemRepository
 from app.models.item import ItemInDB
 
 
+class DuplicateItemError(ValueError):
+    """Raised when trying to create an item that already exists."""
+    def __init__(self, message: str, existing_item: ItemInDB):
+        super().__init__(message)
+        self.existing_item = existing_item
+
+
 class ItemService:
     """Service for item business logic."""
     
@@ -55,6 +62,7 @@ class ItemService:
         
         return items
     
+
     async def create_item(
         self,
         user_id: str,
@@ -70,10 +78,11 @@ class ItemService:
             selected_cart_ids: List of cart IDs to add item to
             
         Returns:
-            Dictionary with message and item or existing_item
+            Dictionary with message and item
             
         Raises:
             ValueError: If cart not found
+            DuplicateItemError: If item with same URL already exists
         """
         url = item_details.get("url")
         
@@ -89,10 +98,11 @@ class ItemService:
                     if cart_doc:
                         cart_name = cart_doc.get("cart_name")
                 msg_cart = f"'{cart_name}'" if cart_name else "an existing cart"
-                return {
-                    "message": f"Item already exists in {msg_cart}. Move it instead.",
-                    "existing_item": ItemInDB.from_mongo(existing),
-                }
+                existing_item = ItemInDB.from_mongo(existing)
+                raise DuplicateItemError(
+                    f"Item already exists in {msg_cart}. Move it instead.",
+                    existing_item
+                )
         
         # Validate carts exist
         for cart_id in selected_cart_ids:

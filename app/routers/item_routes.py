@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from app.schemas.item import EditNoteRequest, AddNewItemRequest, MoveItemRequest
-from app.services.item_service import ItemService
+from app.services.item_service import ItemService, DuplicateItemError
 from app.core.dependencies import get_current_user, get_item_service
 from app.models.user import User
 from app.utils.rate_limiter import rate_limit
@@ -94,6 +94,14 @@ async def add_new_item(
             payload.selected_cart_ids
         )
         return response
+    except DuplicateItemError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": str(e),
+                "existing_item": e.existing_item
+            }
+        )
     except ValueError as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=str(e))
