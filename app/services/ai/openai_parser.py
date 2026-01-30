@@ -1,8 +1,9 @@
 import json
-import openai
+from openai import OpenAI
 from app.core.config import settings
 
-openai.api_key = settings.OPENAI_API_KEY
+# Create OpenAI client instance
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 def parse_inner_text_with_openai(input_text: str) -> dict:
     """
@@ -30,8 +31,8 @@ def parse_inner_text_with_openai(input_text: str) -> dict:
     """
 
     try:
-        # Send the request to OpenAI
-        response = openai.ChatCompletion.create(
+        # Send the request to OpenAI using the new client API
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
@@ -39,7 +40,7 @@ def parse_inner_text_with_openai(input_text: str) -> dict:
         )
 
         # Parse the response as JSON
-        result = response["choices"][0]["message"]["content"].strip()
+        result = response.choices[0].message.content.strip()
         try:
             # Extract JSON content from OpenAI's response
             start_index = result.find("{")
@@ -82,14 +83,14 @@ def parse_images_with_openai(page_url: str, product_name: str, image_urls: list)
     """
 
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=85,
             temperature=0.3,
         )
 
-        result = response["choices"][0]["message"]["content"].strip()
+        result = response.choices[0].message.content.strip()
 
         if not result.startswith("http"):
             raise ValueError(f"OpenAI returned an invalid URL: {result}")

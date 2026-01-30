@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Request
 from app.schemas.extraction import ImageRequest, InnerTextRequest
 from app.services.ai.openai_parser import parse_images_with_openai, parse_inner_text_with_openai
@@ -7,6 +8,7 @@ from app.models.user import User
 from app.utils.rate_limiter import rate_limit
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/analyze-images")
 @rate_limit("10/minute")
@@ -43,6 +45,7 @@ async def analyze_images(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error in analyze_images: {type(e).__name__}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 @router.post("/extract")
@@ -61,4 +64,5 @@ async def extract_cart_info(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error in extract_cart_info: {type(e).__name__}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
