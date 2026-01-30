@@ -1,5 +1,5 @@
 import re
-from html import escape
+from html import unescape
 
 
 def strip_html_tags(text: str) -> str:
@@ -14,18 +14,19 @@ def strip_html_tags(text: str) -> str:
 def sanitize_text(text: str, max_length: int = 1000) -> str:
     """
     Sanitize user input text by:
+    - Decoding any existing HTML entities (to prevent double-encoding)
     - Stripping HTML tags
-    - Escaping special characters
     - Limiting length
+    Note: We don't escape characters here since we're storing in DB, not rendering HTML.
     """
     if not text:
         return ""
     
-    # Strip HTML
-    text = strip_html_tags(text)
+    # First, decode any existing HTML entities (in case data is already encoded)
+    text = unescape(text)
     
-    # Escape special characters (but keep basic formatting)
-    text = escape(text)
+    # Strip HTML tags
+    text = strip_html_tags(text)
     
     # Limit length
     if len(text) > max_length:
