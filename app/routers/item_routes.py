@@ -98,7 +98,7 @@ async def add_new_item(
         raise HTTPException(
             status_code=409,
             detail={
-                "message": str(e),
+                "message": "Item already exists in the selected carts",
                 "existing_item": e.existing_item.model_dump()
             }
         )
