@@ -85,10 +85,11 @@ class TestAdvancedItemOperations:
         }
         
         response = authenticated_client.post("/carts/items/add-new", json=payload)
-        # Should return error message about duplicate
-        assert response.status_code == status.HTTP_200_OK
+        # Should return 409 Conflict with error message about duplicate
+        assert response.status_code == status.HTTP_409_CONFLICT
         data = response.json()
-        assert "already exists" in data.get("message", "").lower() or "existing_item" in data
+        assert "already exists" in data.get("detail", {}).get("message", "").lower()
+        assert "existing_item" in data.get("detail", {})
     
     def test_move_item_between_carts(self, authenticated_client, test_carts, sample_item_data):
         """Test moving an item from one cart to another."""
@@ -315,10 +316,11 @@ class TestAdvancedItemOperations:
         item1_id = response_data1.get("item", {}).get("item_id") or response_data1.get("existing_item", {}).get("item_id")
         assert item1_id is not None
         
-        # Add new item across multiple carts
+        # Add new item across multiple carts (with different URL to avoid duplicate detection)
         payload = {
             **sample_item_data,
             "name": "Item 2",
+            "url": "https://example.com/product2",  # Different URL to make it a different item
             "selected_cart_ids": test_carts[:2]
         }
         item2_response = authenticated_client.post("/carts/items/add-new", json=payload)

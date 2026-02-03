@@ -1,4 +1,5 @@
 """Feedback API schemas for request/response validation."""
+from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator
 
 
@@ -6,12 +7,12 @@ class FeedbackFormRequest(BaseModel):
     """Request schema for feedback form submissions (bug reports or feature requests)."""
     type: str
     description: str
-    firstName: str
-    lastName: str
-    email: EmailStr
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    email: Optional[EmailStr] = None
     timestamp: str  # ISO format timestamp
     
-    @field_validator('type', 'description', 'firstName', 'lastName')
+    @field_validator('type', 'description')
     @classmethod
     def validate_required_fields(cls, v: str, info) -> str:
         if not v or not v.strip():

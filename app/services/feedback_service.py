@@ -1,7 +1,7 @@
 """Feedback service for business logic."""
 from datetime import datetime
 from uuid import uuid4
-from typing import Dict
+from typing import Dict, Optional
 from app.repositories.feedback_repository import FeedbackRepository
 from app.models.feedback import Feedback
 from app.core.config import settings
@@ -24,10 +24,10 @@ class FeedbackService:
         self,
         type: str,
         description: str,
-        firstName: str,
-        lastName: str,
-        email: str,
-        timestamp: str
+        timestamp: str,
+        firstName: Optional[str] = None,
+        lastName: Optional[str] = None,
+        email: Optional[str] = None
     ) -> Dict:
         """
         Submit feedback (save to MongoDB and post to Google Sheets).
@@ -35,9 +35,9 @@ class FeedbackService:
         Args:
             type: Type of feedback (e.g., "bug", "feature_request")
             description: Description of the feedback
-            firstName: User's first name
-            lastName: User's last name
-            email: User's email address
+            firstName: User's first name (optional)
+            lastName: User's last name (optional)
+            email: User's email address (optional)
             timestamp: ISO format timestamp from the client
             
         Returns:
@@ -69,9 +69,9 @@ class FeedbackService:
                     form_data = {
                         "type": type,
                         "description": description,
-                        "firstName": firstName,
-                        "lastName": lastName,
-                        "email": email,
+                        "firstName": firstName or "",
+                        "lastName": lastName or "",
+                        "email": email or "",
                         "timestamp": timestamp
                     }
                     

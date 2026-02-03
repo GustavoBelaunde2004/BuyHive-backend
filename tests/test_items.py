@@ -165,14 +165,16 @@ class TestItemEndpoints:
         )
         assert response1.status_code == status.HTTP_200_OK
         
-        # Try to add same item again (same URL) - should return existing item message
+        # Try to add same item again (same URL) - should return 409 Conflict
         response2 = authenticated_client.post(
             "/carts/items/add-new",
             json={**sample_item_data, "selected_cart_ids": [test_cart]}
         )
-        # Should return message about existing item
-        assert response2.status_code == status.HTTP_200_OK
-        assert "existing_item" in response2.json() or "already exists" in response2.json().get("message", "")
+        # Should return 409 Conflict with message about existing item
+        assert response2.status_code == status.HTTP_409_CONFLICT
+        response_data = response2.json()
+        assert "already exists" in response_data.get("detail", {}).get("message", "").lower()
+        assert "existing_item" in response_data.get("detail", {})
     
     def test_same_item_url_different_carts(self, authenticated_client, sample_cart_data, sample_item_data):
         """Test adding same item URL to different carts."""
@@ -190,14 +192,16 @@ class TestItemEndpoints:
         )
         assert response1.status_code == status.HTTP_200_OK
         
-        # Try to add same URL to cart2 - should return existing item message
+        # Try to add same URL to cart2 - should return 409 Conflict
         response2 = authenticated_client.post(
             "/carts/items/add-new",
             json={**sample_item_data, "selected_cart_ids": [cart2_id]}
         )
-        # Should return message about existing item
-        assert response2.status_code == status.HTTP_200_OK
-        assert "existing_item" in response2.json() or "already exists" in response2.json().get("message", "")
+        # Should return 409 Conflict with message about existing item
+        assert response2.status_code == status.HTTP_409_CONFLICT
+        response_data = response2.json()
+        assert "already exists" in response_data.get("detail", {}).get("message", "").lower()
+        assert "existing_item" in response_data.get("detail", {})
         
         # Only cart1 should have the item (since duplicate was rejected)
         items1 = authenticated_client.get(f"/carts/{cart1_id}/items").json()["items"]

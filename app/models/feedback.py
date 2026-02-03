@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 class Feedback(BaseModel):
@@ -7,9 +7,9 @@ class Feedback(BaseModel):
     feedback_id: str  # UUID
     type: str
     description: str
-    firstName: str
-    lastName: str
-    email: str
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    email: Optional[str] = None
     timestamp: str  # ISO datetime string
     created_at: str  # ISO datetime string
     
