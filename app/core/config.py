@@ -89,7 +89,13 @@ class Settings(BaseSettings):
                 "ALLOWED_ORIGINS",
                 "JWT_SECRET_KEY",
             ]
-            missing = [var for var in required_vars if not getattr(self, var, None)]
+            missing = []
+            for var in required_vars:
+                value = getattr(self, var, None)
+                # Debug: log what we're getting (remove after debugging)
+                print(f"DEBUG: {var} = {repr(value)} (type: {type(value).__name__}, empty: {not value})")
+                if not value:
+                    missing.append(var)
             if missing:
                 raise ValueError(
                     f"Missing required environment variables for production: {', '.join(missing)}"
