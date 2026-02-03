@@ -1,8 +1,56 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.dependencies import get_current_user
+from app.core.security import verify_auth0_token, get_or_create_user_from_token, create_access_token
 from app.models.user import User
+from pydantic import BaseModel
 
 router = APIRouter()
+security = HTTPBearer()
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+@router.post("/exchange", response_model=TokenResponse)
+async def exchange_auth0_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Exchange Auth0 access token for internal JWT.
+    
+    This endpoint validates the Auth0 token and returns a shorter-lived
+    internal JWT that can be used for subsequent API requests.
+    """
+    auth0_token = credentials.credentials
+    
+    try:
+        # Verify Auth0 token
+        payload = await verify_auth0_token(auth0_token)
+        
+        # Get or create user from token
+        user_info = await get_or_create_user_from_token(payload)
+        
+        # Create internal JWT with user info
+        jwt_data = {
+            "sub": user_info["user_id"],
+            "email": user_info["email"],
+            "name": user_info["name"],
+            "auth0_id": user_info["auth0_id"],
+        }
+        
+        access_token = create_access_token(data=jwt_data)
+        
+        return TokenResponse(access_token=access_token)
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Auth0 token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 @router.get("/me")

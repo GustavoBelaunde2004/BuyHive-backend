@@ -11,14 +11,56 @@ import copy
 from jose import jwt
 from datetime import datetime, timedelta
 
+# Ensure JWT_SECRET_KEY is set for tests BEFORE importing settings
+TEST_JWT_SECRET_KEY = "test-secret-key-for-jwt-token-generation-in-tests-only"
+os.environ.setdefault("JWT_SECRET_KEY", TEST_JWT_SECRET_KEY)
+
 from main import app
 from app.core.config import settings
 
+# Patch settings object to ensure JWT_SECRET_KEY is set
+if not settings.JWT_SECRET_KEY:
+    settings.JWT_SECRET_KEY = TEST_JWT_SECRET_KEY
 
 # Test user data
 TEST_USER_EMAIL = "test@buyhive.com"
 TEST_USER_NAME = "Test User"
 TEST_AUTH0_ID = "auth0|test123456"
+
+
+@pytest.fixture
+def test_internal_jwt(ensure_jwt_secret_key) -> str:
+    """
+    Generate a test internal JWT token for testing.
+    Creates token directly with test secret to avoid settings issues.
+    """
+    from jose import jwt
+    from datetime import datetime, timedelta
+    from app.core.config import settings
+    
+    # Force set JWT_SECRET_KEY to test secret
+    settings.JWT_SECRET_KEY = TEST_JWT_SECRET_KEY
+    
+    # Create token directly with test secret (bypassing create_access_token to avoid settings issues)
+    expire_time = datetime.utcnow() + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    jwt_data = {
+        "sub": TEST_AUTH0_ID,
+        "email": TEST_USER_EMAIL,
+        "name": TEST_USER_NAME,
+        "auth0_id": TEST_AUTH0_ID,
+        "type": "access",
+        "exp": expire_time,  # jwt.encode will convert datetime to timestamp
+    }
+    
+    # Encode directly with test secret
+    token = jwt.encode(
+        jwt_data,
+        TEST_JWT_SECRET_KEY,
+        algorithm="HS256"
+    )
+    
+    return token
 
 
 @pytest.fixture
@@ -45,9 +87,10 @@ def mock_auth0_token() -> str:
 
 
 @pytest.fixture
-def mock_verify_token():
+def mock_verify_auth0_token():
     """
     Mock the Auth0 token verification to return a test user payload.
+    Used for the exchange endpoint.
     """
     async def mock_verify(token: str):
         return {
@@ -63,6 +106,62 @@ def mock_verify_token():
     # Use AsyncMock with side_effect - AsyncMock automatically handles async functions
     mock = AsyncMock(side_effect=mock_verify)
     return mock
+
+
+@pytest.fixture
+def mock_verify_token(test_internal_jwt, ensure_jwt_secret_key):
+    """
+    Mock the internal JWT token verification.
+    Used for all endpoints except exchange.
+    Verifies tokens using the test secret key.
+    """
+    from app.core.config import settings
+    from jose import jwt, JWTError
+    from datetime import datetime
+    
+    # Ensure JWT_SECRET_KEY is set
+    settings.JWT_SECRET_KEY = TEST_JWT_SECRET_KEY
+    
+    # Pre-decode the test token to get its payload (for quick matching)
+    try:
+        test_token_payload = jwt.decode(
+            test_internal_jwt,
+            TEST_JWT_SECRET_KEY,
+            algorithms=["HS256"]
+        )
+    except Exception:
+        test_token_payload = None
+    
+    def mock_verify(token: str, token_type: str = "access"):
+        # Ensure settings is set (in case it got reset)
+        settings.JWT_SECRET_KEY = TEST_JWT_SECRET_KEY
+        
+        # If it's our test token, return the pre-decoded payload (fast path)
+        if token == test_internal_jwt and test_token_payload:
+            if test_token_payload.get("type") != token_type:
+                raise JWTError(f"Invalid token type: expected {token_type}, got {test_token_payload.get('type')}")
+            return test_token_payload
+        
+        # For other tokens, decode them
+        try:
+            payload = jwt.decode(
+                token,
+                TEST_JWT_SECRET_KEY,
+                algorithms=["HS256"]
+            )
+            
+            # Verify token type
+            if payload.get("type") != token_type:
+                raise JWTError(f"Invalid token type: expected {token_type}, got {payload.get('type')}")
+            
+            return payload
+        except Exception as e:
+            # Re-raise JWTError as-is, wrap other exceptions
+            if isinstance(e, JWTError):
+                raise
+            raise JWTError(f"Invalid token: {str(e)}")
+    
+    return mock_verify
 
 
 @pytest.fixture
@@ -109,7 +208,7 @@ class MockUpdateResult:
 
 
 @pytest.fixture
-def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_in_db) -> Generator:
+def authenticated_client(mock_verify_token, mock_user_in_db, test_internal_jwt) -> Generator:
     """
     Create a test client with mocked authentication and stateful database.
     All requests will be treated as authenticated with TEST_USER_EMAIL.
@@ -522,60 +621,58 @@ def authenticated_client(mock_verify_token, mock_get_or_create_user, mock_user_i
     # in dependencies.py, not just the original in security.py
     # We patch both places to be safe, but the dependencies patch is the critical one
     # Also patch users_collection in security_module since get_or_create_user_from_token uses it
-    with patch.object(deps_module, "verify_auth0_token", new=mock_verify_token):
-        with patch.object(deps_module, "get_or_create_user_from_token", new=mock_get_or_create_user):
-            # Also patch at source for completeness (any direct imports elsewhere)
-            with patch.object(security_module, "verify_auth0_token", new=mock_verify_token):
-                with patch.object(security_module, "get_or_create_user_from_token", new=mock_get_or_create_user):
-                    # Patch database collections - must patch in all modules that import them
-                    with patch.object(db_module, "users_collection", users_mock):
-                        with patch.object(db_module, "carts_collection", carts_mock):
-                            with patch.object(db_module, "items_collection", items_mock):
-                                with patch.object(db_module, "feedback_collection", feedback_mock):
-                                    # Also patch in security_module since it imports users_collection
-                                    with patch.object(security_module, "users_collection", users_mock):
-                                        with patch.object(deps_module, "users_collection", users_mock):
-                                            # Patch in repository modules since they import collections at module level
-                                            with patch.object(user_repo_module, "users_collection", users_mock):
-                                                with patch.object(cart_repo_module, "carts_collection", carts_mock):
-                                                    with patch.object(item_repo_module, "items_collection", items_mock):
-                                                        with patch.object(feedback_repo_module, "feedback_collection", feedback_mock):
-                                                            with TestClient(app) as client:
-                                                                auth_headers = {"Authorization": "Bearer mock_token_for_testing"}
-                                                                client._auth_headers = auth_headers
+    # Now we patch verify_token (for internal JWT) instead of verify_auth0_token
+    with patch.object(deps_module, "verify_token", new=mock_verify_token):
+        with patch.object(security_module, "verify_token", new=mock_verify_token):
+            # Patch database collections - must patch in all modules that import them
+            with patch.object(db_module, "users_collection", users_mock):
+                with patch.object(db_module, "carts_collection", carts_mock):
+                    with patch.object(db_module, "items_collection", items_mock):
+                        with patch.object(db_module, "feedback_collection", feedback_mock):
+                            # Also patch in security_module since it imports users_collection
+                            with patch.object(security_module, "users_collection", users_mock):
+                                with patch.object(deps_module, "users_collection", users_mock):
+                                    # Patch in repository modules since they import collections at module level
+                                    with patch.object(user_repo_module, "users_collection", users_mock):
+                                        with patch.object(cart_repo_module, "carts_collection", carts_mock):
+                                            with patch.object(item_repo_module, "items_collection", items_mock):
+                                                with patch.object(feedback_repo_module, "feedback_collection", feedback_mock):
+                                                    with TestClient(app) as client:
+                                                        auth_headers = {"Authorization": f"Bearer {test_internal_jwt}"}
+                                                        client._auth_headers = auth_headers
 
-                                                                original_get = client.get
-                                                                original_post = client.post
-                                                                original_put = client.put
-                                                                original_delete = client.delete
+                                                        original_get = client.get
+                                                        original_post = client.post
+                                                        original_put = client.put
+                                                        original_delete = client.delete
 
-                                                                def _get(url, **kwargs):
-                                                                    kwargs.setdefault("headers", {}).update(auth_headers)
-                                                                    return original_get(url, **kwargs)
+                                                        def _get(url, **kwargs):
+                                                            kwargs.setdefault("headers", {}).update(auth_headers)
+                                                            return original_get(url, **kwargs)
 
-                                                                def _post(url, **kwargs):
-                                                                    kwargs.setdefault("headers", {}).update(auth_headers)
-                                                                    return original_post(url, **kwargs)
+                                                        def _post(url, **kwargs):
+                                                            kwargs.setdefault("headers", {}).update(auth_headers)
+                                                            return original_post(url, **kwargs)
 
-                                                                def _put(url, **kwargs):
-                                                                    kwargs.setdefault("headers", {}).update(auth_headers)
-                                                                    return original_put(url, **kwargs)
+                                                        def _put(url, **kwargs):
+                                                            kwargs.setdefault("headers", {}).update(auth_headers)
+                                                            return original_put(url, **kwargs)
 
-                                                                def _delete(url, **kwargs):
-                                                                    kwargs.setdefault("headers", {}).update(auth_headers)
-                                                                    return original_delete(url, **kwargs)
+                                                        def _delete(url, **kwargs):
+                                                            kwargs.setdefault("headers", {}).update(auth_headers)
+                                                            return original_delete(url, **kwargs)
 
-                                                                client.get = _get
-                                                                client.post = _post
-                                                                client.put = _put
-                                                                client.delete = _delete
+                                                        client.get = _get
+                                                        client.post = _post
+                                                        client.put = _put
+                                                        client.delete = _delete
 
-                                                                yield client
+                                                        yield client
 
 
 @pytest.fixture
 @pytest.mark.asyncio
-async def async_authenticated_client(mock_verify_token, mock_get_or_create_user) -> AsyncGenerator:
+async def async_authenticated_client(mock_verify_token, test_internal_jwt) -> AsyncGenerator:
     """
     Create an async test client with mocked authentication.
     Note: Most tests use TestClient (synchronous), this is for async-specific tests.
@@ -584,14 +681,12 @@ async def async_authenticated_client(mock_verify_token, mock_get_or_create_user)
     import app.core.dependencies as deps_module
     
     # Patch where functions are used (dependencies module)
-    with patch.object(deps_module, "verify_auth0_token", new=mock_verify_token):
-        with patch.object(deps_module, "get_or_create_user_from_token", new=mock_get_or_create_user):
-            # Also patch at source
-            with patch.object(security_module, "verify_auth0_token", new=mock_verify_token):
-                with patch.object(security_module, "get_or_create_user_from_token", new=mock_get_or_create_user):
-                    async with AsyncClient(app=app, base_url="http://test") as client:
-                        client.headers = {"Authorization": "Bearer mock_token_for_testing"}
-                        yield client
+    # Now we patch verify_token (for internal JWT) instead of verify_auth0_token
+    with patch.object(deps_module, "verify_token", new=mock_verify_token):
+        with patch.object(security_module, "verify_token", new=mock_verify_token):
+            async with AsyncClient(app=app, base_url="http://test") as client:
+                client.headers = {"Authorization": f"Bearer {test_internal_jwt}"}
+                yield client
 
 
 @pytest.fixture
@@ -601,6 +696,21 @@ def unauthenticated_client() -> Generator:
     """
     with TestClient(app) as client:
         yield client
+
+
+@pytest.fixture(autouse=True)
+def ensure_jwt_secret_key(monkeypatch):
+    """Ensure JWT_SECRET_KEY is always set for tests."""
+    test_secret = TEST_JWT_SECRET_KEY
+    monkeypatch.setenv("JWT_SECRET_KEY", test_secret)
+    # Patch settings object directly to ensure it's set
+    from app.core.config import settings
+    original_secret = settings.JWT_SECRET_KEY
+    # Always force set to test secret for tests
+    settings.JWT_SECRET_KEY = test_secret
+    yield
+    # Restore original if needed (though it shouldn't matter for tests)
+    settings.JWT_SECRET_KEY = original_secret
 
 
 @pytest.fixture(autouse=True)

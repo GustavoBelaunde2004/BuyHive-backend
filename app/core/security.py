@@ -283,6 +283,9 @@ def verify_token(token: str, token_type: str = "access") -> Dict[str, Any]:
     Raises:
         JWTError: If token is invalid, expired, or wrong type
     """
+    if not settings.JWT_SECRET_KEY:
+        raise JWTError("JWT_SECRET_KEY is not configured")
+    
     try:
         payload = jwt.decode(
             token,

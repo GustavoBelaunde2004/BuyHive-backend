@@ -2,7 +2,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
-from app.core.security import verify_auth0_token, get_or_create_user_from_token
+from app.core.security import verify_token
 from app.core.database import users_collection
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
@@ -22,8 +22,7 @@ async def get_current_user(
     """
     FastAPI dependency to get the current authenticated user.
     
-    Validates Auth0 JWT token and returns user object.
-    Creates user in database if doesn't exist.
+    Validates internal JWT token and returns user object.
     
     Raises:
         HTTPException: If token is invalid or user not found
@@ -31,12 +30,18 @@ async def get_current_user(
     token = credentials.credentials
     
     try:
-        # Verify Auth0 token
-        payload = await verify_auth0_token(token)
+        # Verify internal JWT token
+        payload = verify_token(token, token_type="access")
         
-        # Get or create user from token
-        user_info = await get_or_create_user_from_token(payload)
-        user_id = user_info["user_id"]
+        # Extract user info from JWT payload
+        user_id = payload.get("sub")
+        
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: missing user_id",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         
         # Get user from database
         user_data = await users_collection.find_one({"user_id": user_id})
@@ -56,13 +61,6 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid authentication credentials: {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except ValueError as e:
-        # Handle case where token doesn't have valid email
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication error: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

@@ -87,6 +87,7 @@ class Settings(BaseSettings):
                 "AUTH0_DOMAIN",
                 "AUTH0_AUDIENCE",
                 "ALLOWED_ORIGINS",
+                "JWT_SECRET_KEY",
             ]
             missing = [var for var in required_vars if not getattr(self, var, None)]
             if missing:
