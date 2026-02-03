@@ -10,7 +10,6 @@ class FeedbackFormRequest(BaseModel):
     firstName: Optional[str] = None
     lastName: Optional[str] = None
     email: Optional[EmailStr] = None
-    timestamp: str  # ISO format timestamp
     
     @field_validator('type', 'description')
     @classmethod

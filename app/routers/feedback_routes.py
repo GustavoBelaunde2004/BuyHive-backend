@@ -24,8 +24,7 @@ async def submit_feedback(
             description=payload.description,
             firstName=payload.firstName,
             lastName=payload.lastName,
-            email=payload.email,
-            timestamp=payload.timestamp
+            email=payload.email
         )
         
         return result

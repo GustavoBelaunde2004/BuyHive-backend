@@ -10,7 +10,6 @@ class Feedback(BaseModel):
     firstName: Optional[str] = None
     lastName: Optional[str] = None
     email: Optional[str] = None
-    timestamp: str  # ISO datetime string
     created_at: str  # ISO datetime string
     
     @classmethod

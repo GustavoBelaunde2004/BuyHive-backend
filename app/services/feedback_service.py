@@ -24,7 +24,6 @@ class FeedbackService:
         self,
         type: str,
         description: str,
-        timestamp: str,
         firstName: Optional[str] = None,
         lastName: Optional[str] = None,
         email: Optional[str] = None
@@ -38,7 +37,6 @@ class FeedbackService:
             firstName: User's first name (optional)
             lastName: User's last name (optional)
             email: User's email address (optional)
-            timestamp: ISO format timestamp from the client
             
         Returns:
             Dictionary with success message and feedback_id
@@ -54,7 +52,6 @@ class FeedbackService:
             firstName=firstName,
             lastName=lastName,
             email=email,
-            timestamp=timestamp,
             created_at=now,
         )
         
@@ -72,7 +69,7 @@ class FeedbackService:
                         "firstName": firstName or "",
                         "lastName": lastName or "",
                         "email": email or "",
-                        "timestamp": timestamp
+                        "timestamp": now
                     }
                     
                     response = await client.post(
