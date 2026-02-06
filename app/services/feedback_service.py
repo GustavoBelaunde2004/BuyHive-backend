@@ -6,6 +6,9 @@ from app.repositories.feedback_repository import FeedbackRepository
 from app.models.feedback import Feedback
 from app.core.config import settings
 import httpx
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class FeedbackService:
@@ -79,11 +82,11 @@ class FeedbackService:
                     )
                     response.raise_for_status()
             else:
-                raise Exception("Warning: GOOGLE_SHEETS_SCRIPT_URL not configured, skipping Google Sheets post")
+                logger.warning("GOOGLE_SHEETS_SCRIPT_URL not configured, skipping Google Sheets post")
                 
         except httpx.HTTPError as e:
             # Log error but don't fail the request if MongoDB save succeeded
-            raise Exception(f"Warning: Failed to post to Google Sheets: {str(e)}")
+            logger.warning(f"Failed to post to Google Sheets: {str(e)}")
         
         return {
             "message": "Feedback submitted successfully",

@@ -31,9 +31,6 @@ async def analyze_images(
 
         if not image_urls:
             raise HTTPException(status_code=400, detail="No valid image URLs found.")
-        
-        #FILTERING
-        #filtered_image_urls = filter_images(product_name=product_name,image_urls=image_urls)
 
         # Call OpenAI function
         result = parse_images_with_openai(page_url_str, product_name, image_urls)

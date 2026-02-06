@@ -5,6 +5,9 @@ Used as a fallback when CLIP verification fails.
 from openai import OpenAI
 from app.core.config import settings
 import httpx
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
 client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
@@ -57,7 +60,7 @@ async def verify_with_openai_vision(image_url: str, product_name: str) -> bool:
         return result.startswith("yes")
         
     except Exception as e:
-        raise Exception(f"Error verifying image with OpenAI Vision: {e}")
+        logger.error(f"Error verifying image with OpenAI Vision: {e}")
         return False
 
 async def check_openai_vision_availability() -> dict:
