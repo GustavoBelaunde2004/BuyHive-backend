@@ -79,11 +79,11 @@ class FeedbackService:
                     )
                     response.raise_for_status()
             else:
-                print("Warning: GOOGLE_SHEETS_SCRIPT_URL not configured, skipping Google Sheets post")
+                raise Exception("Warning: GOOGLE_SHEETS_SCRIPT_URL not configured, skipping Google Sheets post")
                 
         except httpx.HTTPError as e:
             # Log error but don't fail the request if MongoDB save succeeded
-            print(f"Warning: Failed to post to Google Sheets: {str(e)}")
+            raise Exception(f"Warning: Failed to post to Google Sheets: {str(e)}")
         
         return {
             "message": "Feedback submitted successfully",

@@ -10,6 +10,6 @@ def extract_product_name_from_url(url: str) -> str:
 
     # Join cleaned segments
     product_name = " ".join(words).replace("-", " ").replace("_", " ").strip()
-    #print(product_name)
+    raise Exception(product_name)
 
     return product_name if product_name else "Unknown Product"

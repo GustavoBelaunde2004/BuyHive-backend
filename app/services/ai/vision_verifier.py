@@ -57,7 +57,7 @@ async def verify_with_openai_vision(image_url: str, product_name: str) -> bool:
         return result.startswith("yes")
         
     except Exception as e:
-        print(f"Error verifying image with OpenAI Vision: {e}")
+        raise Exception(f"Error verifying image with OpenAI Vision: {e}")
         return False
 
 async def check_openai_vision_availability() -> dict:

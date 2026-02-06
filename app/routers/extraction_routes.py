@@ -26,8 +26,6 @@ async def analyze_images(
         page_url_str = str(payload.page_url)
         product_name = extract_product_name_from_url(page_url_str)
 
-        print(product_name)
-
         # Convert comma-separated URLs to a list
         image_urls = [url.strip() for url in payload.image_urls.split(",") if url.strip()]
 
