@@ -82,6 +82,9 @@ class TestCartEndpoints:
         updated_cart = next((c for c in carts if c.get("cart_id") == cart_id), None)
         assert updated_cart is not None
         assert updated_cart.get("cart_name") == new_name
+
+        # TEST CI/CD PIPELINE
+        assert False
         
         # Cleanup
         authenticated_client.delete(f"/carts/{cart_id}")
