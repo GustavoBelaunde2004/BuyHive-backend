@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError
 from app.core.dependencies import get_current_user
-from app.core.security import verify_auth0_token, get_or_create_user_from_token, create_access_token
+from app.core.security import verify_auth0_token, get_or_create_user_from_token, create_access_token, create_refresh_token, verify_token
+from app.core.database import users_collection
 from app.models.user import User
 from pydantic import BaseModel
 
@@ -11,6 +13,7 @@ security = HTTPBearer()
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 
@@ -42,13 +45,84 @@ async def exchange_auth0_token(
         }
         
         access_token = create_access_token(data=jwt_data)
+        refresh_token = create_refresh_token(data=jwt_data)
         
-        return TokenResponse(access_token=access_token)
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token
+        )
     
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid Auth0 token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_access_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Refresh access token using refresh token.
+    
+    Accepts a refresh token and returns a new access token and refresh token.
+    Implements token rotation for security (old refresh token is invalidated
+    by issuing a new one).
+    """
+    refresh_token = credentials.credentials
+    
+    try:
+        # Verify refresh token
+        payload = verify_token(refresh_token, token_type="refresh")
+        
+        # Extract user_id from token
+        user_id = payload.get("sub")
+        
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token: missing user_id",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Get user from database
+        user_data = await users_collection.find_one({"user_id": user_id})
+        
+        if not user_data:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Create new tokens with user info
+        jwt_data = {
+            "sub": user_data["user_id"],
+            "email": user_data["email"],
+            "name": user_data["name"],
+            "auth0_id": user_data["auth0_id"],
+        }
+        
+        new_access_token = create_access_token(data=jwt_data)
+        new_refresh_token = create_refresh_token(data=jwt_data)
+        
+        return TokenResponse(
+            access_token=new_access_token,
+            refresh_token=new_refresh_token
+        )
+    
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid refresh token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Token refresh failed: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

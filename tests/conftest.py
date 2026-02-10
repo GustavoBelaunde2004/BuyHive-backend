@@ -64,6 +64,41 @@ def test_internal_jwt(ensure_jwt_secret_key) -> str:
 
 
 @pytest.fixture
+def test_refresh_token(ensure_jwt_secret_key) -> str:
+    """
+    Generate a test refresh token for testing.
+    Creates token directly with test secret to avoid settings issues.
+    """
+    from jose import jwt
+    from datetime import datetime, timedelta
+    from app.core.config import settings
+    
+    # Force set JWT_SECRET_KEY to test secret
+    settings.JWT_SECRET_KEY = TEST_JWT_SECRET_KEY
+    
+    # Create refresh token directly with test secret
+    expire_time = datetime.utcnow() + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    
+    jwt_data = {
+        "sub": TEST_AUTH0_ID,
+        "email": TEST_USER_EMAIL,
+        "name": TEST_USER_NAME,
+        "auth0_id": TEST_AUTH0_ID,
+        "type": "refresh",
+        "exp": int(expire_time.timestamp()),
+    }
+    
+    # Encode directly with test secret
+    token = jwt.encode(
+        jwt_data,
+        TEST_JWT_SECRET_KEY,
+        algorithm="HS256"
+    )
+    
+    return token
+
+
+@pytest.fixture
 def mock_auth0_token() -> str:
     """
     Generate a mock Auth0 JWT token for testing.
